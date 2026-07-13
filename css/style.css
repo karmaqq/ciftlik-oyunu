@@ -148,7 +148,7 @@ small {
 
 #main-layout {
   display: grid;
-  grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px);
+  grid-template-columns: 30% 40% 30%;
   gap: var(--space-sm);
   padding: var(--space-sm);
   min-height: 0;
@@ -512,22 +512,24 @@ small {
 /* ---------- 11. GELİŞTİRME DÜĞMELERİ ---------- */
 .slot-upgrades {
   position: absolute;
-  bottom: 1px;
+  bottom: 2px;
   display: flex;
-  gap: 1px;
+  gap: var(--space-xxs);
   z-index: var(--z-base);
 }
 
 .mini-btn {
-  font-size: var(--font-xxs);
-  padding: 1px 3px;
-  border-radius: var(--radius-xs);
+  font-size: var(--font-xs);
+  padding: var(--space-xxs) var(--space-xs);
+  border-radius: var(--radius-sm);
   background: var(--bg-deep);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
   cursor: pointer;
   transition: all var(--transition-fast);
-  line-height: 1.2;
+  line-height: 1.3;
+  min-width: 28px;
+  text-align: center;
 }
 
 .mini-btn:hover:not(:disabled) {
@@ -923,13 +925,13 @@ button.active {
 /* ---------- 23. RESPONSIVE ---------- */
 @media (max-width: 1100px) {
   #main-layout {
-    grid-template-columns: minmax(0, 260px) minmax(0, 1fr) minmax(0, 260px);
+    grid-template-columns: 30% 40% 30%;
   }
 }
 
 @media (max-width: 900px) {
   #main-layout {
-    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    grid-template-columns: 1fr 1fr;
   }
 
   #right-panel {
