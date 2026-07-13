@@ -2,6 +2,7 @@
 import { CROPS } from "../data/crops.js";
 import { TREES } from "../data/trees.js";
 import { RECIPES } from "../data/recipes.js";
+import { resolveItem } from "../data/items.js";
 
 const CROP_IDS = new Set(CROPS.map((c) => c.id));
 const TREE_IDS = new Set(TREES.map((t) => t.id));
@@ -12,14 +13,14 @@ export function categorizeItem(itemId) {
   if (itemId.endsWith("_fidan")) return "fidan";
   if (itemId.endsWith("_kaliteli")) return "kaliteli";
   if (CROP_IDS.has(itemId) || TREE_IDS.has(itemId)) return "hasat";
-  if (["bal", "yumurta", "sut", "inek_eti"].includes(itemId)) return "hayvan_urunu";
+  if (["bal", "yumurta", "sut", "inek_eti", "tavuk_eti"].includes(itemId)) return "hayvan_urunu";
   if (CRAFTED_IDS.has(itemId)) return "uretim";
   return "diger";
 }
 
-export const FILTERS = ["hepsi", "tohum", "fidan", "hasat", "hayvan_urunu", "uretim", "kaliteli", "diger"];
+export const FILTERS = ["tümü", "tohum", "fidan", "üretim", "diğer"];
 
-export function getInventoryList(state, { filter = "hepsi", sortBy = "isim" } = {}) {
+export function getInventoryList(state, { filter = "tümü", sortBy = "isim" } = {}) {
   let list = Object.entries(state.inventory.items).map(([itemId, data]) => ({
     itemId,
     quantity: data.quantity,
@@ -27,11 +28,18 @@ export function getInventoryList(state, { filter = "hepsi", sortBy = "isim" } = 
     category: categorizeItem(itemId),
   }));
 
-  if (filter !== "hepsi") {
+  if (filter === "üretim") {
+    list = list.filter((i) => ["hasat", "hayvan_urunu", "uretim", "kaliteli"].includes(i.category));
+  } else if (filter === "diğer") {
+    list = list.filter((i) => !["tohum", "fidan", "hasat", "hayvan_urunu", "uretim", "kaliteli"].includes(i.category));
+  } else if (filter !== "tümü") {
     list = list.filter((i) => i.category === filter);
   }
 
   switch (sortBy) {
+    case "deger":
+      list.sort((a, b) => (resolveItem(b.itemId).sellPrice || 0) - (resolveItem(a.itemId).sellPrice || 0));
+      break;
     case "miktar":
       list.sort((a, b) => b.quantity - a.quantity);
       break;

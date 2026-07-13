@@ -12,13 +12,7 @@
 
     <div id="main-layout">
       <aside id="inventory-panel">
-        <div class="panel-header">Envanter</div>
         <div id="inventory-filters" class="tab-bar small"></div>
-        <select id="inventory-sort">
-          <option value="isim">İsme göre</option>
-          <option value="miktar">Miktara göre</option>
-          <option value="kategori">Kategoriye göre</option>
-        </select>
         <div id="inventory-grid" class="inventory-grid"></div>
       </aside>
 
@@ -49,9 +43,12 @@
     </div>
 
     <footer id="log-panel">
+      <div class="log-resize-handle" id="log-resize-handle"></div>
       <div class="panel-header">Günlük</div>
       <div id="log"></div>
     </footer>
+
+    <div id="game-tooltip"><div class="tt-inner"></div></div>
   </div>
 
   <script type="module" src="js/main.js"></script>

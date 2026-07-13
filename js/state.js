@@ -8,11 +8,14 @@ import { RECIPES } from "./data/recipes.js";
 export const FIELD_TOTAL_SLOTS = 25; // 5x5
 export const FIELD_START_UNLOCKED = 5;
 export const ORCHARD_TOTAL_SLOTS = 9; // 3x3
-export const INVENTORY_TOTAL_SLOTS = 49; // 7x7
+export const ORCHARD_START_UNLOCKED = 3;
+export const INVENTORY_TOTAL_SLOTS = 25; // 5x5
 export const MAX_FIELD_LEVEL = 10;
 export const MAX_SEED_SAVE_LEVEL = 10;
 export const FIELD_LEVEL_SPEED_BONUS = 0.05; // %5 / seviye, max %50
 export const SEED_SAVE_CHANCE_PER_LEVEL = 0.02; // %2 / seviye, max %20
+export const MAX_MARKET_SLOTS_PER_CATEGORY = 3;
+const MARKET_START_SLOTS = 1;
 
 function createFieldSlots() {
   const slots = [];
@@ -33,7 +36,7 @@ function createOrchardSlots() {
   for (let i = 0; i < ORCHARD_TOTAL_SLOTS; i++) {
     slots.push({
       slotId: `orchard_${i}`,
-      unlocked: i < 4, // bahçe de kademeli açılsın diye başlangıçta 4 slot
+      unlocked: i < ORCHARD_START_UNLOCKED,
       level: 0,
       seedSaveLevel: 0,
       planted: null,
@@ -53,6 +56,7 @@ export function createInitialState() {
       items: {
         bugday_tohum: { quantity: 5 },
       },
+      maxSlots: 5,
     },
 
     field: { slots: createFieldSlots() },
@@ -64,12 +68,13 @@ export function createInitialState() {
       barn: { level: 0, population: 1, sinceLastProduction: 0 },
     },
 
-    market: { secondsSinceRefresh: 0, listings: [] },
+    market: { secondsSinceRefresh: 0, listings: [], seedSlots: MARKET_START_SLOTS, saplingSlots: MARKET_START_SLOTS, animalSlots: MARKET_START_SLOTS },
 
     recipes: Object.fromEntries(RECIPES.map((r) => [r.id, { learned: false }])),
+    unlockedTiers: [1],
+    hintsShown: {},
 
     quests: [],
-    orders: [],
 
     ui: { activeMiddleTab: "field", activeBuildingTab: "hive", activeRightTab: "market" },
   };
@@ -96,12 +101,4 @@ export function removeItem(state, itemId, qty) {
   entry.quantity -= qty;
   if (entry.quantity <= 0) delete state.inventory.items[itemId];
   return true;
-}
-
-export function inventoryUsedSlots(state) {
-  return Object.keys(state.inventory.items).length;
-}
-
-export function inventoryHasSpace(state) {
-  return inventoryUsedSlots(state) < INVENTORY_TOTAL_SLOTS;
 }

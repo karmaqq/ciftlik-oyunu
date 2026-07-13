@@ -2,7 +2,7 @@
 import { BUILDING_TYPES, MAX_BUILDING_LEVEL, capacityForLevel, speedMultiplierForLevel } from "../data/animals.js";
 import { daysToSeconds } from "./time.js";
 import { getWeather } from "./weather.js";
-import { addItem, hasItem, removeItem } from "../state.js";
+import { addItem } from "../state.js";
 
 /** Her tick'te binaların üretim sayaçlarını ilerletir; hazır olan üretimleri otomatik envantere ekler. */
 export function tickBuildings(state, dtSeconds) {

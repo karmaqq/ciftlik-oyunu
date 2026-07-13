@@ -1,7 +1,6 @@
 // js/systems/quests.js
 import { CROPS } from "../data/crops.js";
 import { RECIPES } from "../data/recipes.js";
-import { hasItem, removeItem } from "../state.js";
 
 let questCounter = 0;
 

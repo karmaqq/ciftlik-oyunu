@@ -5,45 +5,36 @@
 /* ---------- 1. DEĞİŞKENLER ---------- */
 :root {
   /* Arka planlar */
-  --bg-deep: #0b0f0a;
-  --bg-panel: #141c12;
-  --bg-surface: #1e2a1a;
-  --bg-elevated: #263420;
+  --bg-deep: #08090e;
+  --bg-panel: #0e1018;
+  --bg-surface: #151922;
+  --bg-elevated: #1c2230;
 
   /* Sınırlar */
-  --border-subtle: #2a3824;
-  --border-default: #3a4d30;
-  --border-strong: #4a6040;
+  --border-subtle: #1e2536;
+  --border-default: #2a3348;
+  --border-strong: #3a4560;
 
   /* Vurgu */
-  --accent: #6b9e3a;
-  --accent-hover: #7db844;
-  --accent-muted: #4a6e2a;
+  --accent: #4a7fd4;
+  --accent-hover: #5a90e8;
+  --accent-muted: #354f7a;
 
   /* Metin */
-  --text-primary: #e8f0e0;
-  --text-secondary: #a8b89a;
-  --text-muted: #6a7a5e;
-  --text-inverse: #0b0f0a;
+  --text-primary: #e0e8f4;
+  --text-secondary: #8898b4;
+  --text-muted: #4a5672;
+  --text-inverse: #08090e;
 
   /* Durum */
   --gold: #f0c040;
   --gold-dim: #c09830;
   --danger: #d04838;
-  --danger-hover: #e05848;
-  --info: #4890d0;
 
   /* Nadirlik */
-  --rarity-normal: #a0a0a0;
   --rarity-nadir: #4488ff;
   --rarity-legendary: #ff8800;
   --rarity-gizemli: #cc44ff;
-
-  /* Mevsim */
-  --season-ilkbahar: #6b9e3a;
-  --season-yaz: #e8a020;
-  --season-sonbahar: #c06020;
-  --season-kis: #6088c0;
 
   /* Boşluk */
   --space-xxs: 2px;
@@ -55,14 +46,11 @@
   --space-2xl: 32px;
 
   /* Font */
-  --font-xxs: 0.556rem;
-  --font-xs: 0.611rem;
-  --font-sm: 0.722rem;
-  --font-base: 0.833rem;
-  --font-md: 0.944rem;
-  --font-lg: 1.111rem;
-  --font-xl: 1.333rem;
-  --font-2xl: 1.667rem;
+  --font-xs: 14px;
+  --font-sm: 16px;
+  --font-md: 20px;
+  --font-lg: 24px;
+  --font-xl: 28px;
 
   /* Yarıçap */
   --radius-xs: 3px;
@@ -73,23 +61,20 @@
   --radius-full: 9999px;
 
   /* Gölge */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.55);
-  --shadow-glow: 0 0 10px rgba(107, 158, 58, 0.25);
+  --shadow-glow: 0 0 10px rgba(74, 127, 212, 0.25);
   --shadow-glow-gold: 0 0 10px rgba(240, 192, 64, 0.3);
 
   /* Geçiş */
   --transition-fast: 100ms ease;
   --transition-normal: 180ms ease;
-  --transition-slow: 300ms ease;
 
   /* Z-index */
   --z-base: 1;
-  --z-dropdown: 10;
+  --z-log: 50;
   --z-tooltip: 1000;
 
-  font-size: 16px;
+  font-size: 14px;
 }
 
 /* ---------- 2. SIFIRLAMA & TEMEL ---------- */
@@ -105,14 +90,14 @@ body {
   background: var(--bg-deep);
   color: var(--text-primary);
   font-family: "Segoe UI", "Inter", "Trebuchet MS", system-ui, sans-serif;
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h3 {
-  font-size: var(--font-lg);
+  font-size: var(--font-xl);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: var(--space-xs);
@@ -124,7 +109,7 @@ p {
 }
 
 small {
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
   color: var(--text-muted);
 }
 
@@ -140,7 +125,7 @@ small {
 /* ---------- 4. ANA LAYOUT ---------- */
 #app {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
@@ -148,11 +133,12 @@ small {
 
 #main-layout {
   display: grid;
-  grid-template-columns: 30% 40% 30%;
+  grid-template-columns: 3fr 4fr 3fr;
   gap: var(--space-sm);
   padding: var(--space-sm);
+  padding-bottom: 70px;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 #main-layout > * {
@@ -175,7 +161,7 @@ small {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -189,13 +175,13 @@ small {
 /* ---------- 6. SEKME ÇUBUKLARI ---------- */
 .tab-bar {
   display: flex;
-  gap: var(--space-xxs);
+  gap: var(--space-xs);
   flex-wrap: nowrap;
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-sm);
 }
 
 .tab-bar button {
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
   padding: var(--space-xs) var(--space-sm);
   background: var(--bg-surface);
   color: var(--text-secondary);
@@ -222,16 +208,65 @@ small {
 }
 
 .tab-bar.small {
+  display: flex;
   gap: var(--space-xxs);
-  flex-wrap: wrap;
+  width: 100%;
+  overflow: hidden;
 }
 
 .tab-bar.small button {
-  font-size: var(--font-xxs);
-  padding: var(--space-xxs) var(--space-xs);
+  font-size: var(--font-xs);
+  padding: var(--space-xs) 2px;
   text-transform: capitalize;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
+
+.tab-bar.small .hamburger-btn {
+  flex: 0 0 32px;
+}
+
+.hamburger-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 6px;
+  transition: background var(--transition-fast);
+}
+
+.hamburger-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent-muted);
+}
+
+.hamburger-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.hamburger-btn span {
+  display: block;
+  height: 2px;
+  background: var(--text-secondary);
+  border-radius: 1px;
+}
+
+.hamburger-btn span:nth-child(1) { width: 16px; }
+.hamburger-btn span:nth-child(2) { width: 12px; }
+.hamburger-btn span:nth-child(3) { width: 8px; }
 
 /* ---------- 7. PANELLER ---------- */
 #inventory-panel,
@@ -244,19 +279,19 @@ small {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 #middle-panel {
   background: var(--bg-panel);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  padding: var(--space-sm);
+  padding: var(--space-xs);
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   min-height: 0;
 }
 
@@ -264,6 +299,7 @@ small {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 #building-content {
@@ -272,41 +308,17 @@ small {
 }
 
 .panel-header {
-  font-size: var(--font-lg);
+  font-size: var(--font-xl);
   font-weight: 700;
   color: var(--accent);
   margin-bottom: var(--space-xs);
-  padding-bottom: var(--space-xs);
-  border-bottom: 1px solid var(--border-subtle);
 }
 
 /* ---------- 8. ENVANTER ---------- */
-#inventory-sort {
-  font-size: var(--font-xs);
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: var(--space-xxs) var(--space-xs);
-  margin-bottom: var(--space-xs);
-  width: 100%;
-  cursor: pointer;
-  transition: border-color var(--transition-fast);
-}
-
-#inventory-sort:hover {
-  border-color: var(--border-default);
-}
-
-#inventory-sort option {
-  background: var(--bg-panel);
-  color: var(--text-primary);
-}
-
 .inventory-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: var(--space-xxs);
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-xs);
 }
 
 .cell {
@@ -348,13 +360,18 @@ small {
 
 .cell .qty {
   font-weight: 700;
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   color: var(--text-primary);
   line-height: 1;
 }
 
+.cell-emoji {
+  font-size: var(--font-xl);
+  line-height: 1;
+}
+
 .cell .label {
-  font-size: var(--font-xxs);
+  font-size: var(--font-xs);
   color: var(--text-secondary);
   text-align: center;
   overflow: hidden;
@@ -366,13 +383,13 @@ small {
 }
 
 .cell.tohum {
-  background: #1a3a1a;
-  border-color: #2a5a2a;
+  background: #121a2e;
+  border-color: #1e2e50;
 }
 
 .cell.fidan {
-  background: #2a2a1a;
-  border-color: #4a4a2a;
+  background: #1a1820;
+  border-color: #302e44;
 }
 
 .cell.kaliteli {
@@ -381,17 +398,12 @@ small {
   box-shadow: var(--shadow-glow-gold);
 }
 
-.cell.drag-over {
-  border-color: var(--accent) !important;
-  background: var(--bg-elevated) !important;
-  box-shadow: var(--shadow-glow) !important;
-  transform: scale(1.05);
-}
-
 /* ---------- 9. TARLA / BAHÇE ---------- */
 .plot-grid {
   display: grid;
-  gap: var(--space-xs);
+  gap: 6px;
+  padding: var(--space-xs);
+  width: 100%;
 }
 
 .field-grid {
@@ -406,7 +418,7 @@ small {
   position: relative;
   aspect-ratio: 1;
   border: 2px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -414,7 +426,10 @@ small {
   background: var(--bg-surface);
   transition: all var(--transition-normal);
   overflow: hidden;
-  min-height: 60px;
+  padding: 2px;
+  gap: 1px;
+  min-width: 0;
+  min-height: 0;
 }
 
 .slot.locked {
@@ -422,6 +437,10 @@ small {
   cursor: pointer;
   filter: grayscale(0.4);
   border-style: dashed;
+}
+
+.slot.locked .slot-inner {
+  font-size: var(--font-lg);
 }
 
 .slot.locked:hover {
@@ -442,7 +461,7 @@ small {
 }
 
 .slot.empty-plantable .slot-inner {
-  font-size: var(--font-2xl);
+  font-size: var(--font-xl);
   color: var(--text-muted);
   transition: color var(--transition-fast);
 }
@@ -452,12 +471,12 @@ small {
 }
 
 .slot.growing {
-  background: #1a2a10;
-  border-color: #2a4a18;
+  background: #121828;
+  border-color: #1e2e48;
 }
 
 .slot.ready {
-  background: #2a3a10;
+  background: #182030;
   cursor: pointer;
   border-color: var(--gold);
   animation: pulse-ready 2.5s ease-in-out infinite;
@@ -469,19 +488,19 @@ small {
 }
 
 .slot-inner {
-  font-size: var(--font-xl);
+  font-size: var(--font-lg);
   line-height: 1;
 }
 
 .slot-name {
-  font-size: var(--font-xxs);
+  font-size: var(--font-xs);
   color: var(--text-secondary);
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 90%;
-  margin-top: var(--space-xxs);
+  max-width: 100%;
+  line-height: 1;
 }
 
 .slot.drag-over {
@@ -494,11 +513,10 @@ small {
 /* ---------- 10. İLERLEME ÇUBUĞU ---------- */
 .progress {
   width: 88%;
-  height: 5px;
+  height: 4px;
   background: var(--bg-deep);
   border-radius: var(--radius-full);
   overflow: hidden;
-  margin-top: var(--space-xxs);
   flex-shrink: 0;
 }
 
@@ -512,23 +530,23 @@ small {
 /* ---------- 11. GELİŞTİRME DÜĞMELERİ ---------- */
 .slot-upgrades {
   position: absolute;
-  bottom: 2px;
+  bottom: 1px;
   display: flex;
-  gap: var(--space-xxs);
+  gap: 2px;
   z-index: var(--z-base);
 }
 
 .mini-btn {
   font-size: var(--font-xs);
-  padding: var(--space-xxs) var(--space-xs);
-  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
   background: var(--bg-deep);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
   cursor: pointer;
   transition: all var(--transition-fast);
-  line-height: 1.3;
-  min-width: 28px;
+  line-height: 1.2;
+  min-width: 22px;
   text-align: center;
 }
 
@@ -539,8 +557,9 @@ small {
 }
 
 .mini-btn:disabled {
-  opacity: 0.3;
+  opacity: 0.35;
   cursor: not-allowed;
+  filter: grayscale(0.5) brightness(0.8);
 }
 
 /* ---------- 12. BİNA PANELİ ---------- */
@@ -552,27 +571,118 @@ small {
 }
 
 .building-panel h3 {
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   margin-bottom: var(--space-xs);
 }
 
 .building-panel p {
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
   color: var(--text-secondary);
   margin-bottom: var(--space-xxs);
 }
 
-.building-actions {
+/* ---------- 12b. GELİŞTİRME PANELİ ---------- */
+.upgrades-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.upgrade-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+}
+
+.upgrade-section h4 {
+  font-size: var(--font-md);
+  margin-bottom: var(--space-xs);
+  color: var(--text-primary);
+}
+
+.upgrade-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.upgrade-row:last-child {
+  border-bottom: none;
+}
+
+.upgrade-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.upgrade-label {
+  font-size: var(--font-md);
+  color: var(--text-primary);
+}
+
+.upgrade-status {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.upgrade-btn {
+  font-size: var(--font-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--accent);
+  color: var(--text-inverse);
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+}
+
+.upgrade-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.upgrade-btn:disabled {
+  background: rgba(120, 30, 30, 0.15);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  border-color: rgba(200, 60, 60, 0.3);
+  filter: grayscale(0.5) brightness(0.8);
+}
+
+.building-upgrade-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.building-upgrade-row:last-child {
+  border-bottom: none;
+}
+
+.building-upgrade-actions {
   display: flex;
   gap: var(--space-xs);
-  margin-top: var(--space-sm);
-  flex-wrap: wrap;
+}
+
+.market-category-header {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  padding: var(--space-xs) var(--space-sm);
+  margin-top: var(--space-xs);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 /* ---------- 13. MARKET ---------- */
 .market-list {
   display: flex;
   flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .market-row {
@@ -580,36 +690,125 @@ small {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-  border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--transition-fast);
-}
-
-.market-row:last-child {
-  border-bottom: none;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .market-row:hover {
+  border-color: var(--accent-muted);
+  box-shadow: var(--shadow-glow);
+}
+
+.market-row.sold-out {
+  opacity: 0.35;
+  border-color: var(--danger);
+  pointer-events: none;
+}
+
+.market-row.sold-out .mr-name {
+  text-decoration: line-through;
+  color: var(--danger);
+}
+
+.mr-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  flex: 1;
+}
+
+.mr-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  font-size: var(--font-lg);
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+}
+
+.mr-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0;
 }
 
 .mr-name {
-  font-size: var(--font-sm);
-  font-weight: 600;
+  font-size: var(--font-md);
+  font-weight: 700;
   color: var(--text-primary);
-  flex: 1;
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mr-price {
-  font-size: var(--font-sm);
-  color: var(--gold);
+.mr-price-tag {
+  font-size: var(--font-xs);
   font-weight: 700;
   white-space: nowrap;
+}
+
+.mr-price-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.mr-price-black {
+  color: #000;
+}
+
+.mr-right {
+  display: flex;
+  gap: var(--space-xs);
   flex-shrink: 0;
+}
+
+.mr-btn {
+  height: 40px;
+  min-width: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-md);
+  font-weight: 700;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-md);
+  gap: var(--space-xxs);
+}
+
+.mr-soldout {
+  font-size: var(--font-md);
+  color: var(--danger);
+  font-weight: 700;
+  border: 2px solid var(--danger);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-sm);
+  text-decoration: line-through;
+  white-space: nowrap;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.market-info {
+  margin-top: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  text-align: center;
 }
 
 /* ---------- 14. ÜRETİM (CRAFTING) ---------- */
@@ -624,7 +823,7 @@ small {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: var(--space-sm);
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
   transition: all var(--transition-fast);
   display: flex;
   flex-direction: column;
@@ -646,20 +845,24 @@ small {
   opacity: 0.55;
 }
 
+.recipe-card.locked {
+  opacity: 0.3;
+  filter: grayscale(0.6);
+  pointer-events: none;
+}
+
+.recipe-tier-1 { border-left: 3px solid var(--accent); }
+.recipe-tier-2 { border-left: 3px solid var(--gold); }
+.recipe-tier-3 { border-left: 3px solid var(--rarity-nadir); }
+.recipe-tier-4 { border-left: 3px solid var(--danger); }
+
 .recipe-title {
   font-weight: 700;
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.recipe-inputs {
-  font-size: var(--font-xxs);
-  color: var(--text-muted);
-  line-height: 1.3;
-  word-break: break-word;
 }
 
 .recipe-actions {
@@ -669,103 +872,212 @@ small {
 }
 
 /* ---------- 15. GÖREVLER ---------- */
-.quest-list {
+.quest-grid {
   display: flex;
   flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
 }
 
-.quest-row {
+.quest-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
   display: flex;
   flex-direction: column;
-  gap: var(--space-xxs);
-  padding: var(--space-sm);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--space-xs);
   transition: all var(--transition-fast);
 }
 
-.quest-row:last-child {
-  border-bottom: none;
+.quest-card:hover {
+  border-color: var(--border-default);
+  background: var(--bg-elevated);
 }
 
-.quest-row:hover {
-  background: var(--bg-surface);
+.quest-card.ready {
+  border-color: var(--gold);
+  box-shadow: var(--shadow-glow-gold);
 }
 
-.quest-row > div:first-child {
-  font-size: var(--font-sm);
+.quest-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.quest-icon {
+  font-size: var(--font-lg);
+  flex-shrink: 0;
+}
+
+.quest-title {
+  font-size: var(--font-md);
+  font-weight: 700;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-deep);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.quest-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-muted), var(--accent));
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+
+.quest-card.ready .quest-progress-fill {
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+}
+
+.quest-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.quest-count {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
-.quest-row.done {
-  border-color: var(--gold-dim);
-  background: rgba(240, 192, 64, 0.04);
-}
-
-.quest-row.done > div:first-child {
+.quest-reward {
+  font-size: var(--font-sm);
   color: var(--gold);
+  font-weight: 700;
 }
 
-/* ---------- 16. BİNA GELİŞTİRME ---------- */
-.upgrade-list {
+.quest-claim-btn {
+  margin-left: auto;
+  font-size: var(--font-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--gold);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.quest-claim-btn:hover {
+  background: var(--gold-dim);
+  transform: scale(1.03);
+}
+
+.quest-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--space-xl);
+  font-style: italic;
+}
+
+/* ---------- 16. GÜNLÜK ---------- */
+#log-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 62px;
+  min-height: 62px;
+  max-height: 50vh;
+  z-index: var(--z-log);
+  background: var(--bg-panel);
+  border-top: 2px solid var(--border-default);
+  padding: 0 var(--space-lg);
+  padding-top: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.upgrade-row {
+.log-resize-handle {
+  width: 100%;
+  height: 10px;
+  cursor: ns-resize;
+  position: absolute;
+  top: 0;
+  left: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-  border-bottom: 1px solid var(--border-subtle);
+  justify-content: center;
+}
+
+.log-resize-handle::after {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 3px;
+  background: var(--border-strong);
+  border-radius: 2px;
   transition: background var(--transition-fast);
 }
 
-.upgrade-row:last-child {
-  border-bottom: none;
-}
-
-.upgrade-row:hover {
-  background: var(--bg-surface);
-}
-
-.upgrade-row span {
-  font-size: var(--font-sm);
-  color: var(--text-primary);
-}
-
-/* ---------- 17. GÜNLÜK ---------- */
-#log-panel {
-  height: 110px;
-  background: var(--bg-panel);
-  border-top: 2px solid var(--border-default);
-  padding: var(--space-xs) var(--space-lg);
-  overflow-y: auto;
-  overflow-x: hidden;
+.log-resize-handle:hover::after {
+  background: var(--accent);
 }
 
 #log-panel .panel-header {
   font-size: var(--font-sm);
-  margin-bottom: var(--space-xxs);
-  padding-bottom: var(--space-xxs);
+  margin-bottom: 0;
   color: var(--text-muted);
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 #log {
-  font-size: var(--font-xs);
-  color: var(--text-muted);
+  font-size: var(--font-sm);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 #log div {
-  padding: 1px 0;
-  line-height: 1.4;
+  padding: 2px 0;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: nowrap;
 }
 
-/* ---------- 18. BUTONLAR ---------- */
+.log-time {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 42px;
+}
+
+.log-icon {
+  flex-shrink: 0;
+  font-size: var(--font-sm);
+}
+
+.log-success { color: #4caf50; }
+.log-error { color: #d04838; }
+.log-info { color: #4890d0; }
+.log-warn { color: #e8a020; }
+.log-season { color: #8bc34a; }
+.log-build { color: #4a7fd4; }
+.log-trade { color: #f0c040; }
+
+/* ---------- 17. BUTONLAR ---------- */
 button {
   font-family: inherit;
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
   cursor: pointer;
   background: var(--bg-elevated);
   color: var(--text-primary);
@@ -789,9 +1101,12 @@ button:active:not(:disabled) {
 }
 
 button:disabled {
-  opacity: 0.3;
+  opacity: 0.35;
   cursor: not-allowed;
-  filter: grayscale(0.3);
+  filter: grayscale(0.5) brightness(0.8);
+  color: var(--text-muted);
+  border-color: rgba(200, 60, 60, 0.3);
+  background: rgba(120, 30, 30, 0.15);
 }
 
 button.active {
@@ -801,74 +1116,89 @@ button.active {
   font-weight: 700;
 }
 
-/* ---------- 19. TOOLTIP ---------- */
-[data-tooltip] {
-  position: relative;
-}
-
-[data-tooltip]::before {
-  content: "";
-  position: absolute;
-  bottom: calc(100% + 4px);
-  left: 50%;
-  transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top-color: var(--bg-deep);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition-fast);
-  z-index: calc(var(--z-tooltip) + 1);
-}
-
-[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 9px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--bg-deep);
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-xxs);
-  font-weight: 400;
-  white-space: pre-line;
-  max-width: 220px;
-  text-align: center;
-  line-height: 1.4;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition-fast);
+/* ---------- 18. TOOLTIP ---------- */
+#game-tooltip {
+  position: fixed;
   z-index: var(--z-tooltip);
-  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  max-width: 260px;
+  min-width: 120px;
 }
 
-[data-tooltip]:hover::before,
-[data-tooltip]:hover::after {
+#game-tooltip.visible {
   opacity: 1;
 }
 
-/* Tooltip alta taşma düzeltmesi */
-#inventory-panel [data-tooltip]::before,
-#inventory-panel [data-tooltip]::after {
-  bottom: auto;
-  top: calc(100% + 4px);
+#game-tooltip .tt-inner {
+  background: var(--bg-deep);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+  white-space: pre-line;
 }
 
-#inventory-panel [data-tooltip]::before {
-  top: calc(100% + 4px);
-  bottom: auto;
-  border-top-color: transparent;
-  border-bottom-color: var(--bg-deep);
+#game-tooltip .tt-title {
+  font-weight: 700;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  margin-bottom: 2px;
 }
 
-#inventory-panel [data-tooltip]::after {
-  top: calc(100% + 9px);
-  bottom: auto;
+#game-tooltip .tt-divider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 4px 0;
 }
 
-/* ---------- 20. ANİMASYONLAR ---------- */
+#game-tooltip .tt-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-secondary);
+}
+
+#game-tooltip .tt-row .tt-label {
+  color: var(--text-muted);
+}
+
+#game-tooltip .tt-row .tt-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+#game-tooltip .tt-row .tt-value.gold {
+  color: var(--gold);
+}
+
+#game-tooltip .tt-row .tt-value.green {
+  color: #4caf50;
+}
+
+#game-tooltip .tt-row .tt-value.red {
+  color: #d04838;
+}
+
+#game-tooltip .tt-row .tt-value.blue {
+  color: #4890d0;
+}
+
+#game-tooltip .tt-hint {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+[data-tooltip] {
+  cursor: default;
+}
+
+/* ---------- 19. ANİMASYONLAR ---------- */
 @keyframes pulse-ready {
   0%, 100% {
     box-shadow: 0 0 0 0 rgba(240, 192, 64, 0);
@@ -892,43 +1222,11 @@ button.active {
 .cell.item,
 .slot,
 .recipe-card,
-.quest-row,
-.market-row,
-.upgrade-row {
+.market-row {
   animation: fadeIn var(--transition-normal) ease-out;
 }
 
-/* ---------- 21. İPUCU ---------- */
-.hint {
-  font-size: var(--font-xs);
-  color: var(--text-muted);
-  margin-top: var(--space-sm);
-  line-height: 1.4;
-}
-
-/* ---------- 22. NADİRLİK GÖSTİRGELERİ ---------- */
-.rarity-nadir {
-  border-color: var(--rarity-nadir) !important;
-  box-shadow: 0 0 6px rgba(68, 136, 255, 0.3) !important;
-}
-
-.rarity-legendary {
-  border-color: var(--rarity-legendary) !important;
-  box-shadow: 0 0 8px rgba(255, 136, 0, 0.35) !important;
-}
-
-.rarity-gizemli {
-  border-color: var(--rarity-gizemli) !important;
-  box-shadow: 0 0 10px rgba(204, 68, 255, 0.4) !important;
-}
-
-/* ---------- 23. RESPONSIVE ---------- */
-@media (max-width: 1100px) {
-  #main-layout {
-    grid-template-columns: 30% 40% 30%;
-  }
-}
-
+/* ---------- 20. RESPONSIVE ---------- */
 @media (max-width: 900px) {
   #main-layout {
     grid-template-columns: 1fr 1fr;
@@ -952,22 +1250,15 @@ button.active {
   #main-layout {
     grid-template-columns: 1fr;
     overflow-y: auto;
+    padding-bottom: 58px;
   }
 
   #right-panel {
     max-height: none;
   }
 
-  .inventory-grid {
-    grid-template-columns: repeat(5, 1fr);
-  }
-
   .field-grid {
     grid-template-columns: repeat(4, 1fr);
-  }
-
-  .orchard-grid {
-    grid-template-columns: repeat(3, 1fr);
   }
 
   .recipe-grid {
@@ -975,7 +1266,8 @@ button.active {
   }
 
   #log-panel {
-    height: 80px;
+    height: 50px;
+    min-height: 50px;
   }
 
   #header {
@@ -999,6 +1291,6 @@ button.active {
   }
 
   .hdr-item {
-    font-size: var(--font-sm);
+    font-size: var(--font-md);
   }
 }

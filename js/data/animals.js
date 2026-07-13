@@ -22,6 +22,8 @@ export const BUILDING_TYPES = {
     productId: "yumurta",
     animalBuyPrice: 10,
     baseProductionDays: 1,
+    secondaryProductId: "tavuk_eti",
+    secondaryChance: 0.15,
   },
   barn: {
     id: "barn",
