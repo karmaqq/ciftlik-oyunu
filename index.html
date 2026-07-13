@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Çiftlik Oyunu</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="header"></header>
+
+    <div id="main-layout">
+      <aside id="inventory-panel">
+        <div class="panel-header">Envanter</div>
+        <div id="inventory-filters" class="tab-bar small"></div>
+        <select id="inventory-sort">
+          <option value="isim">İsme göre</option>
+          <option value="miktar">Miktara göre</option>
+          <option value="kategori">Kategoriye göre</option>
+        </select>
+        <div id="inventory-grid" class="inventory-grid"></div>
+      </aside>
+
+      <section id="middle-panel">
+        <div id="middle-tabs" class="tab-bar">
+          <button data-tab="field" class="active">Tarla</button>
+          <button data-tab="orchard">Bahçe</button>
+        </div>
+        <div id="middle-content"></div>
+
+        <div id="building-tabs" class="tab-bar">
+          <button data-tab="hive" class="active">Kovan</button>
+          <button data-tab="coop">Kümes</button>
+          <button data-tab="barn">Ahır</button>
+        </div>
+        <div id="building-content"></div>
+      </section>
+
+      <aside id="right-panel">
+        <div id="right-tabs" class="tab-bar">
+          <button data-tab="market" class="active">Market</button>
+          <button data-tab="crafting">Üretim</button>
+          <button data-tab="quests">Görevler</button>
+          <button data-tab="upgrades">Geliştirme</button>
+        </div>
+        <div id="right-content"></div>
+      </aside>
+    </div>
+
+    <footer id="log-panel">
+      <div class="panel-header">Günlük</div>
+      <div id="log"></div>
+    </footer>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

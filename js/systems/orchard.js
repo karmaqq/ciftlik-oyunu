@@ -1,0 +1,81 @@
+// js/systems/orchard.js
+// Tarla sistemiyle aynı mantık, TREES veri setini kullanır. Mantık tekrarı
+// bilinçli tutuldu ki iki sistem ayrı ayrı dengelenebilsin (ör. ağaç upgrade
+// maliyetleri tarladan farklı ölçeklenebilir).
+import { getTree } from "../data/trees.js";
+import { daysToSeconds } from "./time.js";
+import { getWeather, rollRarity, RARITY_SELL_MULTIPLIER } from "./weather.js";
+import { addItem, hasItem, removeItem, FIELD_LEVEL_SPEED_BONUS, SEED_SAVE_CHANCE_PER_LEVEL } from "../state.js";
+
+export function computeOrchardGrowthMultiplier(slot, weatherState) {
+  const levelBonus = 1 + FIELD_LEVEL_SPEED_BONUS * slot.level;
+  const weatherBonus = getWeather(weatherState).growthSpeedMultiplier;
+  return levelBonus * weatherBonus;
+}
+
+export function canPlantTree(state, slot, treeId) {
+  if (!slot.unlocked || slot.planted) return false;
+  const tree = getTree(treeId);
+  if (!tree) return false;
+  return hasItem(state, `${treeId}_fidan`, 1);
+}
+
+export function plantTree(state, slotIndex, treeId) {
+  const slot = state.orchard.slots[slotIndex];
+  const tree = getTree(treeId);
+  if (!canPlantTree(state, slot, treeId)) return { success: false, reason: "ekilemez" };
+
+  const seedSaveChance = SEED_SAVE_CHANCE_PER_LEVEL * slot.seedSaveLevel;
+  const seedConsumed = Math.random() >= seedSaveChance;
+  if (seedConsumed) removeItem(state, `${treeId}_fidan`, 1);
+
+  slot.planted = {
+    cropId: treeId,
+    elapsedSeconds: 0,
+    requiredSeconds: daysToSeconds(tree.growthDays),
+    ready: false,
+  };
+
+  return { success: true, seedConsumed };
+}
+
+export function tickOrchardGrowth(state, dtSeconds) {
+  for (const slot of state.orchard.slots) {
+    if (!slot.unlocked || !slot.planted || slot.planted.ready) continue;
+    const mult = computeOrchardGrowthMultiplier(slot, state.weather);
+    slot.planted.elapsedSeconds += dtSeconds * mult;
+    if (slot.planted.elapsedSeconds >= slot.planted.requiredSeconds) {
+      slot.planted.ready = true;
+    }
+  }
+}
+
+export function harvestOrchardSlot(state, slotIndex) {
+  const slot = state.orchard.slots[slotIndex];
+  if (!slot.planted || !slot.planted.ready) return { success: false, reason: "hazir_degil" };
+
+  const tree = getTree(slot.planted.cropId);
+  const rarity = rollRarity(state.weather);
+  const qty = 1;
+
+  addItem(state, tree.id, qty, {
+    rarity,
+    sellPriceOverride: rarity === "normal" ? undefined : Math.round(tree.sellPrice * RARITY_SELL_MULTIPLIER[rarity]),
+  });
+
+  // Ağaçlar neredeyse hep "recurring" -> ağaç kesilmez, sadece yeni meyveye hazırlanır.
+  if (tree.harvestCycle === "recurring") {
+    slot.planted.elapsedSeconds = 0;
+    slot.planted.requiredSeconds = daysToSeconds(tree.recurringIntervalDays);
+    slot.planted.ready = false;
+  } else {
+    slot.planted = null;
+  }
+
+  return { success: true, treeId: tree.id, qty, rarity };
+}
+
+export const ORCHARD_UPGRADE_BASE_COST = 60;
+export function orchardUpgradeCost(currentLevel) {
+  return Math.round(ORCHARD_UPGRADE_BASE_COST * Math.pow(1.35, currentLevel));
+}
