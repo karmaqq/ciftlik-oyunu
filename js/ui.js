@@ -7,11 +7,11 @@ import { TREES, getTree } from "./data/trees.js";
 import { RECIPES } from "./data/recipes.js";
 import { BUILDING_TYPES, capacityForLevel, MAX_BUILDING_LEVEL } from "./data/animals.js";
 import { itemDisplayName, itemSellPrice, itemEmoji } from "./data/items.js";
-import { formatTime, currentSeason } from "./systems/time.js";
+import { formatTime, currentSeason, MONTHS } from "./systems/time.js";
 import { getWeather } from "./systems/weather.js";
 import { getInventoryList, FILTERS } from "./systems/inventory.js";
-import { plantSeed, harvestSlot, fieldUpgradeCost, unlockSlot } from "./systems/field.js";
-import { plantTree, harvestOrchardSlot, orchardUpgradeCost } from "./systems/orchard.js";
+import { plantSeed, harvestSlot, fieldUpgradeCost, unlockSlot, removePlant } from "./systems/field.js";
+import { plantTree, harvestOrchardSlot, orchardUpgradeCost, removePlant as removePlantOrchard } from "./systems/orchard.js";
 import { buildingUpgradeCost } from "./systems/buildings.js";
 import { buyOneSeed, buyAllSeeds, sellItem, getBulkDiscountPercent } from "./systems/market.js";
 import { craftRecipe, canCraft } from "./systems/crafting.js";
@@ -37,13 +37,24 @@ import {
   INVENTORY_TOTAL_SLOTS, FIELD_TOTAL_SLOTS, ORCHARD_TOTAL_SLOTS,
   MAX_MARKET_SLOTS_PER_CATEGORY,
 } from "./state.js";
+import { saveGame } from "./systems/save.js";
 
-let ctx = null; // { state, log(msg) }
+let ctx = null;
 let inventoryFilter = "tümü";
 let inventorySort = "isim";
+let highlightedRecipes = new Set();
+let onNewGame = null;
+let hoveredMarketBtn = null;
+let quickSellMode = localStorage.getItem("quickSellMode") || "single";
 
-export function initUI(state, log) {
+function saveQuickSellMode(mode) {
+  quickSellMode = mode;
+  localStorage.setItem("quickSellMode", mode);
+}
+
+export function initUI(state, log, newGameCallback) {
   ctx = { state, log };
+  onNewGame = newGameCallback || null;
   wireStaticEvents();
 }
 
@@ -75,6 +86,7 @@ function reasonText(r) {
     yetersiz_miktar: "Yeterli miktar yok",
     hava_kaynakli_basarisizlik: "Hava koşulları başarısızlığa neden oldu",
     hava_kaynakli_ticaret_kaybi: "Hava koşulları ticaret kaybına neden oldu",
+    envanter_dolu: "Envanter dolu! Slot boşalmasını bekle.",
   };
   return map[r] || r;
 }
@@ -82,6 +94,30 @@ function reasonText(r) {
 function seasonEmoji(s) {
   const map = { ilkbahar: "🌸", yaz: "☀️", sonbahar: "🍂", kış: "❄️" };
   return map[s] || "";
+}
+
+function weatherEmoji(w) {
+  const map = { normal: "🌤️", yagmurlu: "🌧️", kurak: "🔥", firtina: "⛈️", gokkusagi: "🌈" };
+  return map[w.id] || "🌤️";
+}
+
+function highlightRecipes(itemId, highlight) {
+  highlightedRecipes.clear();
+  if (highlight && itemId) {
+    RECIPES.forEach((r) => {
+      if (r.inputs.some((inp) => inp.id === itemId)) {
+        highlightedRecipes.add(r.id);
+      }
+    });
+  }
+  document.querySelectorAll(".recipe-card").forEach((card) => {
+    const recipeId = card.dataset.recipeId;
+    if (highlightedRecipes.has(recipeId)) {
+      card.classList.add("highlight");
+    } else {
+      card.classList.remove("highlight");
+    }
+  });
 }
 
 function ttTitle(text) { return `<div class="tt-title">${text}</div>`; }
@@ -158,6 +194,22 @@ export function render() {
   else if (rightTab === "upgrades") renderUpgrades();
 
   syncTabButtons();
+  checkLabelOverflow();
+}
+
+function checkLabelOverflow() {
+  document.querySelectorAll(".label, .slot-name").forEach((el) => {
+    const text = el.querySelector(".label-text");
+    if (!text) return;
+    el.classList.remove("is-overflow");
+    if (text.scrollWidth > el.clientWidth + 2) {
+      el.classList.add("is-overflow");
+      const dist = text.scrollWidth - el.clientWidth;
+      const dur = Math.max(3, dist / 30);
+      el.style.setProperty("--scroll-dist", `-${dist + 10}px`);
+      el.style.setProperty("--scroll-dur", `${dur}s`);
+    }
+  });
 }
 
 function syncTabButtons() {
@@ -233,11 +285,15 @@ function renderHeader() {
   const weather = getWeather(ctx.state.weather);
   const season = currentSeason(ctx.state.time);
   const seasonEmojiStr = seasonEmoji(season);
+  const weatherEmojiStr = weatherEmoji(weather);
+  const monthName = MONTHS[ctx.state.time.month].name;
+  const daysInMonth = MONTHS[ctx.state.time.month].days;
   const timeTooltip = [
     ttTitle("⏰ Zaman"),
     ttRow("📅", "Yıl:", `${ctx.state.time.year}`),
     ttRow(seasonEmojiStr, "Mevsim:", season),
-    ttRow("📆", "Gün:", `${ctx.state.time.day}/10`),
+    ttRow("📆", "Ay:", `${monthName}`),
+    ttRow("📆", "Gün:", `${ctx.state.time.day}/${daysInMonth}`),
   ].join("");
   const goldTooltip = [
     ttTitle("🪙 Altın"),
@@ -253,12 +309,30 @@ function renderHeader() {
     ttHint("Yeni ürünler gelecek"),
   ].join("");
 
+  const queueCount = ctx.state.inventory.queue.length;
+  const queueTooltip = queueCount > 0
+    ? [
+      ttTitle("📦 Bekleyen Ürünler"),
+      ttRow("📦", "Sayı:", `${queueCount}`),
+      ttDivider(),
+      ttHint("Envanter boşaldıkça otomatik eklenecek"),
+    ].join("")
+    : ttTitle("📦 Bekleyen Ürünler") + ttHint("Kuyrukta ürün yok");
+
   document.getElementById("header").innerHTML = `
     <div class="hdr-item" data-tooltip="${setTooltip(goldTooltip)}">🪙 <b>${gold()}</b></div>
-    <div class="hdr-item" data-tooltip="${setTooltip(timeTooltip)}">🕐 ${formatTime(ctx.state.time)}</div>
-    <div class="hdr-item" data-tooltip="${setTooltip(weatherTooltip(weather))}">🌤️ ${weather.name}</div>
+    <div class="hdr-item" data-tooltip="${setTooltip(timeTooltip)}">Yıl ${ctx.state.time.year} · ${season.charAt(0).toUpperCase() + season.slice(1)} · ${ctx.state.time.day} ${monthName} ${weatherEmojiStr} ${weather.name}</div>
     <div class="hdr-item" data-tooltip="${setTooltip(marketTooltip)}" style="margin-left:auto">🏪 Market: ${marketSeconds}s</div>
+    ${queueCount > 0 ? `<div class="hdr-item hdr-queue" data-tooltip="${setTooltip(queueTooltip)}">📦 ${queueCount}</div>` : ""}
+    <div class="hdr-item"><button class="new-game-btn" id="new-game-btn">🔄 Yeni Oyun</button></div>
   `;
+
+  const ngBtn = document.getElementById("new-game-btn");
+  if (ngBtn) {
+    ngBtn.addEventListener("click", () => {
+      if (onNewGame) onNewGame();
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -301,11 +375,20 @@ function renderInventory() {
       <div class="cell item ${entry.category}" draggable="true" data-item-id="${entry.itemId}" data-tooltip="${setTooltip(tooltip)}">
         <span class="cell-emoji">${itemEmoji(entry.itemId)}</span>
         <span class="qty">${entry.quantity}</span>
-        <span class="label">${name}</span>
+        <span class="label"><span class="label-text">${name}</span></span>
       </div>
     `);
   }
   grid.innerHTML = cells.join("");
+
+  const quickSellZone = document.getElementById("quick-sell-zone");
+  if (quickSellZone) {
+    quickSellZone.innerHTML = `<div class="quick-sell-content"><small>Sürükle, bırak ve sat</small></div>`;
+  }
+
+  document.querySelectorAll("#sell-tabs button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.sellMode === quickSellMode);
+  });
 }
 
 function abbreviate(name) {
@@ -330,6 +413,11 @@ function renderUpgrades() {
   const fieldCost = fieldSlotUnlockCost(fieldUnlocked);
   const orchardCost = orchardSlotUnlockCost(orchardUnlocked);
 
+  function affordClass(cost, maxed) {
+    if (maxed) return "";
+    return gold() < cost ? " insufficient-gold" : "";
+  }
+
   const invTooltip = invMaxed
     ? ttTitle("📦 Envanter Slotu") + ttRow("✅", "", "Maksimum", "green")
     : ttTitle("📦 Envanter Slotu") + ttRow("📊", "Durum:", `${state.inventory.maxSlots}/${INVENTORY_TOTAL_SLOTS}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${invCost}🪙`, "gold") + ttDivider() + ttHint("Envanter kapasitesini +1 artırır");
@@ -350,7 +438,7 @@ function renderUpgrades() {
           <span class="upgrade-label">Envanter Slotu</span>
           <span class="upgrade-status">${state.inventory.maxSlots}/${INVENTORY_TOTAL_SLOTS}</span>
         </div>
-        <button class="upgrade-btn" data-action="upgradeInventory" ${invMaxed ? "disabled" : ""}>
+        <button class="upgrade-btn${affordClass(invCost, invMaxed)}" data-action="upgradeInventory" ${invMaxed ? "disabled" : ""}>
           ${invMaxed ? "Max" : `${invCost}🪙`}
         </button>
       </div>
@@ -359,7 +447,7 @@ function renderUpgrades() {
           <span class="upgrade-label">Tarla Slotu</span>
           <span class="upgrade-status">${fieldUnlocked}/${FIELD_TOTAL_SLOTS}</span>
         </div>
-        <button class="upgrade-btn" data-action="upgradeField" ${fieldMaxed ? "disabled" : ""}>
+        <button class="upgrade-btn${affordClass(fieldCost, fieldMaxed)}" data-action="upgradeField" ${fieldMaxed ? "disabled" : ""}>
           ${fieldMaxed ? "Max" : `${fieldCost}🪙`}
         </button>
       </div>
@@ -368,7 +456,7 @@ function renderUpgrades() {
           <span class="upgrade-label">Bahçe Slotu</span>
           <span class="upgrade-status">${orchardUnlocked}/${ORCHARD_TOTAL_SLOTS}</span>
         </div>
-        <button class="upgrade-btn" data-action="upgradeOrchard" ${orchardMaxed ? "disabled" : ""}>
+        <button class="upgrade-btn${affordClass(orchardCost, orchardMaxed)}" data-action="upgradeOrchard" ${orchardMaxed ? "disabled" : ""}>
           ${orchardMaxed ? "Max" : `${orchardCost}🪙`}
         </button>
       </div>
@@ -403,7 +491,7 @@ function renderUpgrades() {
           <span class="upgrade-label">🌱 Tohum Slotları</span>
           <span class="upgrade-status">${state.market.seedSlots}/${MAX_MARKET_SLOTS_PER_CATEGORY}</span>
         </div>
-        <button class="upgrade-btn" data-action="upgradeMarketSeed" ${seedMaxed ? "disabled" : ""}>
+        <button class="upgrade-btn${affordClass(seedCost, seedMaxed)}" data-action="upgradeMarketSeed" ${seedMaxed ? "disabled" : ""}>
           ${seedMaxed ? "Max" : `${seedCost}🪙`}
         </button>
       </div>
@@ -412,7 +500,7 @@ function renderUpgrades() {
           <span class="upgrade-label">🌿 Fidan Slotları</span>
           <span class="upgrade-status">${state.market.saplingSlots}/${MAX_MARKET_SLOTS_PER_CATEGORY}</span>
         </div>
-        <button class="upgrade-btn" data-action="upgradeMarketSapling" ${saplingMaxed ? "disabled" : ""}>
+        <button class="upgrade-btn${affordClass(saplingCost, saplingMaxed)}" data-action="upgradeMarketSapling" ${saplingMaxed ? "disabled" : ""}>
           ${saplingMaxed ? "Max" : `${saplingCost}🪙`}
         </button>
       </div>
@@ -421,7 +509,7 @@ function renderUpgrades() {
           <span class="upgrade-label">🐄 Hayvan Slotları</span>
           <span class="upgrade-status">${state.market.animalSlots}/${MAX_MARKET_SLOTS_PER_CATEGORY}</span>
         </div>
-        <button class="upgrade-btn" data-action="upgradeMarketAnimal" ${animalMaxed ? "disabled" : ""}>
+        <button class="upgrade-btn${affordClass(animalCost, animalMaxed)}" data-action="upgradeMarketAnimal" ${animalMaxed ? "disabled" : ""}>
           ${animalMaxed ? "Max" : `${animalCost}🪙`}
         </button>
       </div>
@@ -467,7 +555,7 @@ function renderBuildingUpgradeRow(type) {
         <span class="upgrade-status">${def.animalName}: ${building.population}/${capacity}</span>
       </div>
       <div class="building-upgrade-actions">
-        <button class="upgrade-btn" data-action="upgradeBuildingUpgrade" data-building="${type}" ${maxed ? "disabled" : ""}>
+        <button class="upgrade-btn${gold() < upgradeCostVal && !maxed ? " insufficient-gold" : ""}" data-action="upgradeBuildingUpgrade" data-building="${type}" ${maxed ? "disabled" : ""}>
           ${maxed ? "Max" : `${upgradeCostVal}🪙 Geliştir`}
         </button>
       </div>
@@ -540,11 +628,17 @@ function slotHTML(slot, index, kind) {
   const remainingMin = Math.floor(remainingSec / 60);
   const remainSec = remainingSec % 60;
 
+  const baseEmoji = itemEmoji(def ? def.id : slot.planted.cropId);
+  const harvestsLeft = slot.planted.harvestsLeft || 0;
+  const maxHarvests = slot.planted.maxHarvests || 0;
+  const harvestInfo = ttRow("🌾", "Kalan Hasat:", `${harvestsLeft}/${maxHarvests}`);
+
   let tooltip;
   if (ready) {
     tooltip = [
       ttTitle(`${cropName}`),
       ttRow("✅", "Durum:", "Hasat hazır!", "green"),
+      harvestInfo,
       ttDivider(),
       ttRow("⚡", "Hız:", `Lv${slot.level}/${MAX_FIELD_LEVEL}`),
       ttRow("🛡️", "Koruma:", `Lv${slot.seedSaveLevel}/${MAX_SEED_SAVE_LEVEL}`),
@@ -559,6 +653,7 @@ function slotHTML(slot, index, kind) {
       ttTitle(`${cropName}`),
       ttRow("📊", "Büyüme:", `%${pct}`),
       ttRow("⏱️", "Kalan:", `${remainingMin}dk ${remainSec}sn`),
+      harvestInfo,
       ttDivider(),
       ttRow("⚡", "Hız:", `+%${speedPct}`),
       ttRow("🛡️", "Koruma:", `+%${seedSavePct}`),
@@ -566,13 +661,12 @@ function slotHTML(slot, index, kind) {
     ].join("");
   }
 
-  const baseEmoji = itemEmoji(def ? def.id : slot.planted.cropId);
-
   return `<div class="slot ${ready ? "ready" : "growing"}" data-kind="${kind}" data-index="${index}" data-action="${ready ? "harvest" : ""}" data-tooltip="${setTooltip(tooltip)}">
     <div class="slot-inner">${baseEmoji}</div>
-    <div class="slot-name">${def ? abbreviate(def.name) : ""}</div>
+    <div class="slot-name"><span class="label-text">${def ? abbreviate(def.name) : ""}</span></div>
     ${ready ? "" : `<div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>`}
     ${upgradeButtonsHTML(slot, index, kind)}
+    <button class="remove-btn" data-kind="${kind}" data-index="${index}" data-action="removePlant" title="Sök">🗑️</button>
   </div>`;
 }
 
@@ -592,8 +686,8 @@ function upgradeButtonsHTML(slot, index, kind) {
     : ttTitle("🛡️ Koruma Geliştir") + ttRow("➡️", "Sonraki:", `+%${nextSeedPct}`, "green") + ttDivider() + ttRow("🪙", "Maliyet:", `${seedCost}🪙`, "gold");
 
   return `<div class="slot-upgrades">
-    <button class="mini-btn" data-kind="${kind}" data-index="${index}" data-action="upgradeLevel" ${lvlMaxed ? "disabled" : ""} data-tooltip="${setTooltip(lvlTooltip)}">⬆${slot.level}</button>
-    <button class="mini-btn" data-kind="${kind}" data-index="${index}" data-action="upgradeSeed" ${seedMaxed ? "disabled" : ""} data-tooltip="${setTooltip(seedTooltip)}">🛡️${slot.seedSaveLevel}</button>
+    <button class="mini-btn${gold() < speedCost && !lvlMaxed ? " insufficient-gold" : ""}" data-kind="${kind}" data-index="${index}" data-action="upgradeLevel" ${lvlMaxed ? "disabled" : ""} data-tooltip="${setTooltip(lvlTooltip)}">⬆${slot.level}</button>
+    <button class="mini-btn${gold() < seedCost && !seedMaxed ? " insufficient-gold" : ""}" data-kind="${kind}" data-index="${index}" data-action="upgradeSeed" ${seedMaxed ? "disabled" : ""} data-tooltip="${setTooltip(seedTooltip)}">🛡️${slot.seedSaveLevel}</button>
   </div>`;
 }
 
@@ -724,6 +818,13 @@ function marketHTML() {
       }
 
       const buyDisabled = gold() < unitPrice || capacityFull;
+      const bulkCost = isAnimal ? 0 : Math.round(unitPrice * listing.remaining * (1 - discountPct / 100));
+
+      function btnClass(idx, action, cost) {
+        let cls = hoveredMarketBtn === `${idx}-${action}` ? "mr-btn show-price" : "mr-btn";
+        if (gold() < cost || capacityFull) cls += " insufficient-gold";
+        return cls;
+      }
 
       // Hayvanlar: sadece 1x butonu
       if (isAnimal) {
@@ -738,14 +839,13 @@ function marketHTML() {
           ${soldOut
             ? `<span class="mr-soldout">Tükendi</span>`
             : `<div class="mr-right">
-                <button class="mr-btn" data-action="buyOne" data-index="${i}" ${buyDisabled ? "disabled" : ""}>1x</button>
+                <button class="${btnClass(i, "buyOne", unitPrice)}" data-action="buyOne" data-index="${i}" ${buyDisabled ? "disabled" : ""}><span class="btn-label">1x</span><span class="btn-price">${unitPrice}</span></button>
               </div>`
           }
         </div>`;
       }
 
       // Tohum/Fidan: 1x + toplu alım
-      const bulkCost = Math.round(unitPrice * listing.remaining * (1 - discountPct / 100));
       return `${categoryHeader}<div class="market-row${soldOutClass}" data-tooltip="${setTooltip(tooltip)}">
         <div class="mr-left">
           <span class="mr-icon">${icon}</span>
@@ -757,8 +857,8 @@ function marketHTML() {
         ${soldOut
           ? `<span class="mr-soldout">Tükendi</span>`
           : `<div class="mr-right">
-              <button class="mr-btn" data-action="buyOne" data-index="${i}" ${buyDisabled ? "disabled" : ""}>1x</button>
-              <button class="mr-btn" data-action="buyAll" data-index="${i}" ${buyDisabled ? "disabled" : ""}>${listing.remaining}x</button>
+              <button class="${btnClass(i, "buyOne", unitPrice)}" data-action="buyOne" data-index="${i}" ${buyDisabled ? "disabled" : ""}><span class="btn-label">1x</span><span class="btn-price">${unitPrice}</span></button>
+              <button class="${btnClass(i, "buyAll", bulkCost)}" data-action="buyAll" data-index="${i}" ${buyDisabled ? "disabled" : ""}><span class="btn-label">${listing.remaining}x</span><span class="btn-price">${bulkCost}</span></button>
             </div>`
         }
       </div>`;
@@ -775,83 +875,76 @@ function marketHTML() {
 // ÜRETİM (CRAFTING)
 // ---------------------------------------------------------------------------
 function craftingHTML() {
-  const maxUnlockedTier = Math.max(...ctx.state.unlockedTiers);
+  const tiers = [1, 2, 3, 4];
+  const tierNames = { 1: "Basit", 2: "Orta", 3: "İleri", 4: "Uzman" };
 
-  const cards = RECIPES.map((r) => {
-    const unlocked = ctx.state.unlockedTiers.includes(r.tier);
-    const learned = ctx.state.recipes[r.id].learned;
-    const craftable = unlocked && canCraft(ctx.state, r.id, 1);
+  let html = '<div class="panel-header">Üretim</div><div class="recipe-grid">';
 
-    let maxQty = 0;
-    while (canCraft(ctx.state, r.id, maxQty + 1)) maxQty++;
+  tiers.forEach((tier) => {
+    const tierRecipes = RECIPES.filter((r) => r.tier === tier);
+    if (tierRecipes.length === 0) return;
 
-    const outputPrice = itemSellPrice(r.output.id, {});
-    const profit = outputPrice - r.inputs.reduce((sum, inp) => sum + itemSellPrice(inp.id, {}) * inp.qty, 0);
+    html += `<div class="recipe-tier-header">Tier ${tier} — ${tierNames[tier]}</div>`;
 
-    const inputsDetail = r.inputs.map((inp) => {
-      const have = ctx.state.inventory.items[inp.id]?.quantity || 0;
-      const status = have >= inp.qty ? "green" : "red";
-      return ttRow(itemEmoji(inp.id), `${inp.qty}x ${itemDisplayName(inp.id)}:`, `${have}/${inp.qty}`, status);
-    }).join("");
+    tierRecipes.forEach((r) => {
+      const learned = ctx.state.recipes[r.id].learned;
+      const craftable = canCraft(ctx.state, r.id, 1);
 
-    const profitStr = profit >= 0 ? `+${profit}` : `${profit}`;
+      let maxQty = 0;
+      while (canCraft(ctx.state, r.id, maxQty + 1)) maxQty++;
 
-    // Bu tarif hangi tariflerde kullanılıyor?
-    const usedIn = RECIPES.filter((other) => other.inputs.some((inp) => inp.id === r.output.id));
-    const usedInText = usedIn.length > 0
-      ? usedIn.map((other) => `${itemEmoji(other.output.id)} ${other.name}`).join(", ")
-      : null;
+      const outputPrice = itemSellPrice(r.output.id, {});
+      const profit = outputPrice - r.inputs.reduce((sum, inp) => sum + itemSellPrice(inp.id, {}) * inp.qty, 0);
 
-    // Zincirli girdiler: bu tarifin girdilerinden hangileri başka bir tarifin çıktısı?
-    const chainInputs = r.inputs.filter((inp) => RECIPES.some((x) => x.output.id === inp.id));
-    const chainText = chainInputs.length > 0
-      ? chainInputs.map((inp) => {
-          const src = RECIPES.find((x) => x.output.id === inp.id);
-          return src ? `${itemEmoji(src.output.id)} ${src.name}` : inp.id;
-        }).join(", ")
-      : null;
+      const inputsDetail = r.inputs.map((inp) => {
+        const have = ctx.state.inventory.items[inp.id]?.quantity || 0;
+        const status = have >= inp.qty ? "green" : "red";
+        return ttRow(itemEmoji(inp.id), `${inp.qty}x ${itemDisplayName(inp.id)}:`, `${have}/${inp.qty}`, status);
+      }).join("");
 
-    if (!unlocked) {
-      const lockTooltip = [
-        ttTitle(`🔒 ${r.name}`),
-        ttRow("🚫", "Durum:", "Kilitli"),
+      const profitStr = profit >= 0 ? `+${profit}` : `${profit}`;
+
+      const usedIn = RECIPES.filter((other) => other.inputs.some((inp) => inp.id === r.output.id));
+      const usedInText = usedIn.length > 0
+        ? usedIn.map((other) => `${itemEmoji(other.output.id)} ${other.name}`).join(", ")
+        : null;
+
+      const chainInputs = r.inputs.filter((inp) => RECIPES.some((x) => x.output.id === inp.id));
+      const chainText = chainInputs.length > 0
+        ? chainInputs.map((inp) => {
+            const src = RECIPES.find((x) => x.output.id === inp.id);
+            return src ? `${itemEmoji(src.output.id)} ${src.name}` : inp.id;
+          }).join(", ")
+        : null;
+
+      const tooltip = [
+        ttTitle(`${itemEmoji(r.output.id)} ${r.name}`),
         ttDivider(),
-        ttHint(`Tier ${r.tier} tariflerini açmak için Tier ${r.tier - 1} tarifi üret`),
+        inputsDetail,
+        chainText ? ttDivider() + ttRow("🔗", "Zincir:", chainText, "blue") : "",
+        ttDivider(),
+        usedInText ? ttRow("📦", "Kullanıldığı:", usedInText) : ttRow("📦", "Kullanıldığı:", "Doğrudan satış"),
+        ttDivider(),
+        ttRow("💰", "Satış:", `${outputPrice}🪙`, "gold"),
+        ttRow("📊", "Kâr:", `${profitStr}🪙`, profit >= 0 ? "green" : "red"),
+        ttDivider(),
+        ttHint(learned ? "Öğrenildi — toplu üretim açık" : "İlk üretimde öğrenilir"),
       ].join("");
-      return `<div class="recipe-card locked ${`recipe-tier-${r.tier}`}" data-tooltip="${setTooltip(lockTooltip)}">
-        <div class="recipe-title">🔒 ${r.name}</div>
+
+      const tierClass = `recipe-tier-${r.tier}`;
+
+      html += `<div class="recipe-card ${craftable ? "" : "faded"} ${tierClass}" data-tooltip="${setTooltip(tooltip)}" data-recipe-id="${r.id}">
+        <div class="recipe-title">${itemEmoji(r.output.id)} ${r.name} ${learned ? "⭐" : ""}</div>
         <div class="recipe-actions">
-          <button disabled>Kilitli</button>
+          <button data-action="craft" data-recipe="${r.id}" data-times="1" ${craftable ? "" : "disabled"}>Üret</button>
+          ${learned && maxQty > 1 ? `<button data-action="craft" data-recipe="${r.id}" data-times="${maxQty}" ${maxQty > 0 ? "" : "disabled"}>${maxQty}x</button>` : ""}
         </div>
       </div>`;
-    }
+    });
+  });
 
-    const tooltip = [
-      ttTitle(`${itemEmoji(r.output.id)} ${r.name}`),
-      ttDivider(),
-      inputsDetail,
-      chainText ? ttDivider() + ttRow("🔗", "Zincir:", chainText, "blue") : "",
-      ttDivider(),
-      usedInText ? ttRow("📦", "Kullanıldığı:", usedInText) : ttRow("📦", "Kullanıldığı:", "Doğrudan satış"),
-      ttDivider(),
-      ttRow("💰", "Satış:", `${outputPrice}🪙`, "gold"),
-      ttRow("📊", "Kâr:", `${profitStr}🪙`, profit >= 0 ? "green" : "red"),
-      ttDivider(),
-      ttHint(learned ? "Öğrenildi — toplu üretim açık" : "İlk üretimde öğrenilir"),
-    ].join("");
-
-    const tierClass = `recipe-tier-${r.tier}`;
-
-    return `<div class="recipe-card ${craftable ? "" : "faded"} ${tierClass}" data-tooltip="${setTooltip(tooltip)}">
-      <div class="recipe-title">${itemEmoji(r.output.id)} ${r.name} ${learned ? "⭐" : ""}</div>
-      <div class="recipe-actions">
-        <button data-action="craft" data-recipe="${r.id}" data-times="1" ${craftable ? "" : "disabled"}>Üret</button>
-        ${learned && maxQty > 1 ? `<button data-action="craft" data-recipe="${r.id}" data-times="${maxQty}" ${maxQty > 0 ? "" : "disabled"}>${maxQty}x</button>` : ""}
-      </div>
-    </div>`;
-  }).join("");
-
-  return `<div class="panel-header">Üretim</div><div class="recipe-grid">${cards}</div>`;
+  html += '</div>';
+  return html;
 }
 
 // ---------------------------------------------------------------------------
@@ -941,22 +1034,21 @@ function wireStaticEvents() {
   document.getElementById("inventory-grid").addEventListener("click", (e) => {
     const cell = e.target.closest(".cell.item");
     if (!cell) return;
+  });
+
+  document.getElementById("inventory-grid").addEventListener("mouseover", (e) => {
+    const cell = e.target.closest(".cell.item");
+    if (!cell) return;
     const itemId = cell.dataset.itemId;
-    if (itemId.endsWith("_tohum") || itemId.endsWith("_fidan")) {
-      ctx.log("Bu eşya tohum/fidan olarak ekilemez. Sadece tohum ve fidanları sürükle.", "info");
-      return;
-    }
-    const itemEntry = Object.entries(ctx.state.inventory.items).find(([id]) => id === itemId);
-    const itemMeta = itemEntry ? itemEntry[1].meta : {};
-    const price = itemSellPrice(itemId, itemMeta);
-    const result = sellItem(ctx.state, itemId, 1, price, addGold, itemMeta);
-    if (result.success) {
-      registerProgress(ctx.state, "sell", itemId, 1);
-      ctx.log(`Satıldı: ${itemEmoji(itemId)} ${itemDisplayName(itemId)} → +${result.total}🪙`, "trade");
-    } else {
-      ctx.log(`Satış başarısız: ${reasonText(result.reason)}`, "error");
-    }
-    render();
+    if (!itemId) return;
+    const baseId = itemId.replace(/_tohum$/, "").replace(/_fidan$/, "");
+    highlightRecipes(baseId, true);
+  });
+
+  document.getElementById("inventory-grid").addEventListener("mouseout", (e) => {
+    const cell = e.target.closest(".cell.item");
+    if (!cell) return;
+    highlightRecipes(null, false);
   });
 
   document.getElementById("inventory-grid").addEventListener("dragstart", (e) => {
@@ -985,6 +1077,63 @@ function wireStaticEvents() {
   });
 
   document.getElementById("right-panel").addEventListener("click", (e) => handleRightPanelAction(e));
+
+  document.getElementById("right-panel").addEventListener("mouseover", (e) => {
+    const btn = e.target.closest(".mr-btn[data-action]");
+    if (!btn) return;
+    const idx = btn.dataset.index;
+    const act = btn.dataset.action;
+    hoveredMarketBtn = `${idx}-${act}`;
+  });
+
+  document.getElementById("right-panel").addEventListener("mouseout", (e) => {
+    const btn = e.target.closest(".mr-btn[data-action]");
+    if (!btn) return;
+    const related = e.relatedTarget;
+    if (!related || !btn.contains(related)) {
+      hoveredMarketBtn = null;
+    }
+  });
+
+  document.getElementById("sell-tabs").addEventListener("click", (e) => {
+    const modeBtn = e.target.closest("[data-sell-mode]");
+    if (modeBtn) {
+      saveQuickSellMode(modeBtn.dataset.sellMode);
+      render();
+    }
+  });
+
+  const quickSellZone = document.getElementById("quick-sell-zone");
+  if (quickSellZone) {
+    quickSellZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      quickSellZone.classList.add("drag-over");
+    });
+    quickSellZone.addEventListener("dragleave", () => {
+      quickSellZone.classList.remove("drag-over");
+    });
+    quickSellZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      quickSellZone.classList.remove("drag-over");
+      const itemId = e.dataTransfer.getData("text/plain");
+      if (!itemId) return;
+      const itemEntry = ctx.state.inventory.items[itemId];
+      if (!itemEntry) return;
+      const itemMeta = itemEntry.meta || {};
+      const fullQty = itemEntry.quantity;
+      const qty = quickSellMode === "bulk" ? fullQty : 1;
+      const price = itemSellPrice(itemId, itemMeta);
+      const result = sellItem(ctx.state, itemId, qty, price, addGold, itemMeta);
+      if (result.success) {
+        registerProgress(ctx.state, "sell", itemId, qty);
+        ctx.log(`${itemEmoji(itemId)} ${qty} adet ${itemDisplayName(itemId)} satıldı, +${result.total}🪙`, "trade");
+      } else {
+        ctx.log(`Satış başarısız: ${reasonText(result.reason)}`, "error");
+      }
+      saveGame(ctx.state);
+      render();
+    });
+  }
 }
 
 function handlePlotClick(e) {
@@ -1012,7 +1161,11 @@ function handlePlotClick(e) {
   } else if (action === "upgradeSeed") {
     const result = kind === "field" ? upgradeFieldSeedSave(ctx.state, index, deductGold, gold()) : upgradeOrchardSeedSave(ctx.state, index, deductGold, gold());
     ctx.log(result.success ? `Tohum koruma geliştirildi → Lv${result.newLevel} 🛡️` : `Geliştirme başarısız: ${reasonText(result.reason)}`, result.success ? "build" : "error");
+  } else if (action === "removePlant") {
+    const result = kind === "field" ? removePlant(ctx.state, index) : removePlantOrchard(ctx.state, index);
+    ctx.log(result.success ? `Bitki söküldü 🗑️` : `Sökülemedi: ${reasonText(result.reason)}`, result.success ? "info" : "error");
   }
+  saveGame(ctx.state);
   render();
 }
 
@@ -1035,6 +1188,7 @@ function handlePlotDrop(e) {
   } else {
     ctx.log("Bu eşya buraya ekilemez.", "error");
   }
+  saveGame(ctx.state);
   render();
 }
 
@@ -1091,6 +1245,7 @@ function handleRightPanelAction(e) {
   } else {
     handleUpgradeAction(e);
   }
+  saveGame(ctx.state);
   render();
 }
 

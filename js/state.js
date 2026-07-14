@@ -25,7 +25,7 @@ function createFieldSlots() {
       unlocked: i < FIELD_START_UNLOCKED,
       level: 0,
       seedSaveLevel: 0,
-      planted: null, // { cropId, elapsedSeconds, requiredSeconds, ready }
+      planted: null,
     });
   }
   return slots;
@@ -52,23 +52,23 @@ export function createInitialState() {
     weather: createInitialWeather(),
 
     inventory: {
-      // itemId -> { quantity, meta }
       items: {
         bugday_tohum: { quantity: 5 },
       },
       maxSlots: 5,
+      queue: [],
     },
 
     field: { slots: createFieldSlots() },
     orchard: { slots: createOrchardSlots() },
 
     buildings: {
-      hive: { level: 0, population: 4, sinceLastProduction: 0 },
-      coop: { level: 0, population: 2, sinceLastProduction: 0 },
-      barn: { level: 0, population: 1, sinceLastProduction: 0 },
+      hive: { level: 0, population: 0, sinceLastProduction: 0 },
+      coop: { level: 0, population: 0, sinceLastProduction: 0 },
+      barn: { level: 0, population: 0, sinceLastProduction: 0 },
     },
 
-    market: { secondsSinceRefresh: 0, listings: [], seedSlots: MARKET_START_SLOTS, saplingSlots: MARKET_START_SLOTS, animalSlots: MARKET_START_SLOTS },
+    market: { secondsSinceRefresh: 0, listings: [], seedSlots: MARKET_START_SLOTS, saplingSlots: MARKET_START_SLOTS, animalSlots: MARKET_START_SLOTS, lastRefreshTimestamp: Date.now() },
 
     recipes: Object.fromEntries(RECIPES.map((r) => [r.id, { learned: false }])),
     unlockedTiers: [1],
@@ -82,12 +82,62 @@ export function createInitialState() {
 
 // ---- Envanter yardımcıları ----
 
+function countInventorySlots(state) {
+  return Object.keys(state.inventory.items).length;
+}
+
+function isInventoryFull(state) {
+  return countInventorySlots(state) >= state.inventory.maxSlots;
+}
+
+function hasItemInInventory(state, itemId) {
+  return !!state.inventory.items[itemId];
+}
+
+/**
+ * Ürünü envantere ekler. Envanter doluysa kuyruğa alır.
+ * @returns {{success:boolean, queued:boolean, reason?:string}}
+ */
 export function addItem(state, itemId, qty, meta) {
-  if (qty <= 0) return;
+  if (qty <= 0) return { success: false, queued: false, reason: "eksik_miktar" };
+
   const items = state.inventory.items;
-  if (!items[itemId]) items[itemId] = { quantity: 0, meta: meta || {} };
-  items[itemId].quantity += qty;
-  if (meta) items[itemId].meta = { ...(items[itemId].meta || {}), ...meta };
+
+  if (items[itemId]) {
+    items[itemId].quantity += qty;
+    if (meta) items[itemId].meta = { ...(items[itemId].meta || {}), ...meta };
+    return { success: true, queued: false };
+  }
+
+  if (isInventoryFull(state)) {
+    state.inventory.queue.push({ itemId, qty, meta, source: meta?.source || "unknown" });
+    return { success: false, queued: true };
+  }
+
+  items[itemId] = { quantity: qty, meta: meta || {} };
+  return { success: true, queued: false };
+}
+
+/**
+ * Kuyruktaki ürünleri envantere eklemeyi dener.
+ * @returns {Array<{itemId:string, qty:number}>} Eklenen ürünler
+ */
+export function processQueue(state) {
+  const added = [];
+  const queue = state.inventory.queue;
+
+  while (queue.length > 0) {
+    const next = queue[0];
+    if (hasItemInInventory(state, next.itemId) || countInventorySlots(state) < state.inventory.maxSlots) {
+      queue.shift();
+      addItem(state, next.itemId, next.qty, next.meta);
+      added.push({ itemId: next.itemId, qty: next.qty });
+    } else {
+      break;
+    }
+  }
+
+  return added;
 }
 
 export function hasItem(state, itemId, qty) {

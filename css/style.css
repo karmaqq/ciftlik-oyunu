@@ -172,6 +172,32 @@ small {
   font-weight: 700;
 }
 
+.hdr-queue {
+  background: var(--bg-elevated);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: var(--font-sm);
+  animation: pulse-ready 2.5s ease-in-out infinite;
+}
+
+.new-game-btn {
+  background: transparent;
+  border: 1px solid var(--text-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.new-game-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 /* ---------- 6. SEKME ÇUBUKLARI ---------- */
 .tab-bar {
   display: flex;
@@ -209,15 +235,25 @@ small {
 
 .tab-bar.small {
   display: flex;
-  gap: var(--space-xxs);
+  gap: var(--space-xs);
   width: 100%;
   overflow: hidden;
 }
 
+.tab-bar.small button.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--accent);
+  font-weight: 700;
+  box-shadow: none;
+}
+
 .tab-bar.small button {
-  font-size: var(--font-xs);
-  padding: var(--space-xs) 2px;
-  text-transform: capitalize;
+  font-size: var(--font-md);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   text-align: center;
   overflow: hidden;
@@ -225,6 +261,7 @@ small {
   text-overflow: ellipsis;
   min-width: 0;
   flex: 1;
+  transition: all var(--transition-fast);
 }
 
 .tab-bar.small .hamburger-btn {
@@ -275,24 +312,45 @@ small {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-sm);
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 0;
+}
+
+.panel-top {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-bottom {
+  flex: 0 0 160px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#right-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 #middle-panel {
   background: var(--bg-panel);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
-  padding: var(--space-xs);
-  overflow-y: auto;
-  overflow-x: hidden;
+  padding: var(--space-sm);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  min-height: 0;
+  gap: 0;
 }
 
 #middle-content {
@@ -303,6 +361,7 @@ small {
 }
 
 #building-content {
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
@@ -319,6 +378,51 @@ small {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: var(--space-xs);
+  padding: var(--space-xs);
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.quick-sell-zone {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  transition: all var(--transition-fast);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#sell-tabs button {
+  flex: 1;
+}
+
+.quick-sell-zone:hover {
+  border-color: var(--danger);
+}
+
+.quick-sell-zone.drag-over {
+  background: rgba(208, 72, 56, 0.1);
+  border-color: var(--danger);
+  box-shadow: inset 0 0 10px rgba(208, 72, 56, 0.1);
+}
+
+.quick-sell-content {
+  pointer-events: none;
+}
+
+.quick-sell-content small {
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 .cell {
@@ -359,10 +463,17 @@ small {
 }
 
 .cell .qty {
+  position: absolute;
+  top: 2px;
+  right: 4px;
   font-weight: 700;
-  font-size: var(--font-lg);
+  font-size: var(--font-xs);
   color: var(--text-primary);
   line-height: 1;
+  background: var(--bg-surface);
+  border-radius: 3px;
+  padding: 0 2px;
+  pointer-events: none;
 }
 
 .cell-emoji {
@@ -380,6 +491,29 @@ small {
   max-width: 100%;
   padding: 0 var(--space-xxs);
   line-height: 1.2;
+  width: 100%;
+}
+
+.cell .label.is-overflow .label-text {
+  display: inline-block;
+}
+
+.cell:hover .label.is-overflow {
+  overflow: visible;
+  z-index: 10;
+}
+
+.cell:hover .label.is-overflow .label-text {
+  animation: scrollLabel var(--scroll-dur, 4s) ease-in-out infinite;
+  background: var(--bg-surface);
+  border-radius: 2px;
+  padding: 0 3px;
+}
+
+@keyframes scrollLabel {
+  0%, 15% { transform: translateX(0); }
+  40%, 60% { transform: translateX(var(--scroll-dist, -30px)); }
+  85%, 100% { transform: translateX(0); }
 }
 
 .cell.tohum {
@@ -501,6 +635,24 @@ small {
   white-space: nowrap;
   max-width: 100%;
   line-height: 1;
+  width: 100%;
+  position: relative;
+}
+
+.slot-name.is-overflow .label-text {
+  display: inline-block;
+}
+
+.slot:hover .slot-name.is-overflow {
+  overflow: visible;
+  z-index: 10;
+}
+
+.slot:hover .slot-name.is-overflow .label-text {
+  animation: scrollLabel var(--scroll-dur, 4s) ease-in-out infinite;
+  background: var(--bg-surface);
+  border-radius: 2px;
+  padding: 0 3px;
 }
 
 .slot.drag-over {
@@ -547,7 +699,30 @@ small {
   transition: all var(--transition-fast);
   line-height: 1.2;
   min-width: 22px;
-  text-align: center;
+}
+
+.remove-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  z-index: var(--z-base);
+}
+
+.slot:hover .remove-btn {
+  opacity: 0.7;
+}
+
+.remove-btn:hover {
+  opacity: 1 !important;
+  background: var(--danger);
 }
 
 .mini-btn:hover:not(:disabled) {
@@ -560,6 +735,14 @@ small {
   opacity: 0.35;
   cursor: not-allowed;
   filter: grayscale(0.5) brightness(0.8);
+}
+
+.mini-btn.insufficient-gold {
+  background: rgba(180, 40, 40, 0.25);
+  color: #e07070;
+  border-color: rgba(200, 60, 60, 0.4);
+  filter: grayscale(0.3) brightness(0.85);
+  cursor: not-allowed;
 }
 
 /* ---------- 12. BİNA PANELİ ---------- */
@@ -651,6 +834,14 @@ small {
   cursor: not-allowed;
   border-color: rgba(200, 60, 60, 0.3);
   filter: grayscale(0.5) brightness(0.8);
+}
+
+.insufficient-gold {
+  background: rgba(180, 40, 40, 0.25) !important;
+  color: #e07070 !important;
+  border-color: rgba(200, 60, 60, 0.4) !important;
+  filter: grayscale(0.3) brightness(0.85);
+  cursor: not-allowed;
 }
 
 .building-upgrade-row {
@@ -783,6 +974,46 @@ small {
   padding: 0 var(--space-sm);
   border-radius: var(--radius-md);
   gap: var(--space-xxs);
+  position: relative;
+  overflow: hidden;
+}
+
+.mr-btn .btn-label,
+.mr-btn .btn-price {
+  white-space: nowrap;
+}
+
+.mr-btn .btn-label {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mr-btn .btn-price {
+  position: absolute;
+  opacity: 0;
+  transform: translateY(8px);
+  font-size: var(--font-sm);
+  color: var(--gold);
+}
+
+.mr-btn.show-price .btn-label {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.mr-btn.show-price .btn-price {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mr-btn:disabled .btn-label {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mr-btn:disabled .btn-price {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 .mr-soldout {
@@ -809,17 +1040,38 @@ small {
   font-size: var(--font-xs);
   color: var(--text-muted);
   text-align: center;
+  flex-shrink: 0;
+}
+
+.market-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* ---------- 14. ÜRETİM (CRAFTING) ---------- */
 .recipe-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.recipe-tier-header {
+  grid-column: 1 / -1;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: var(--space-xs) var(--space-xs);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-top: var(--space-md);
+}
+
+.recipe-tier-header:first-child {
+  margin-top: var(--space-xs);
 }
 
 .recipe-card {
-  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: var(--space-sm);
@@ -833,28 +1085,32 @@ small {
 
 .recipe-card:hover {
   border-color: var(--border-default);
-  background: var(--bg-elevated);
+  filter: brightness(1.1);
 }
 
 .recipe-card.faded {
-  opacity: 0.35;
-  filter: grayscale(0.3);
+  opacity: 0.5;
 }
 
 .recipe-card.faded:hover {
-  opacity: 0.55;
+  opacity: 0.7;
 }
 
-.recipe-card.locked {
-  opacity: 0.3;
-  filter: grayscale(0.6);
-  pointer-events: none;
+.recipe-card.highlight {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 8px 2px rgba(240, 192, 64, 0.3);
+  transition: all var(--transition-fast);
 }
 
-.recipe-tier-1 { border-left: 3px solid var(--accent); }
-.recipe-tier-2 { border-left: 3px solid var(--gold); }
-.recipe-tier-3 { border-left: 3px solid var(--rarity-nadir); }
-.recipe-tier-4 { border-left: 3px solid var(--danger); }
+.recipe-tier-1 { background: rgba(74, 127, 212, 0.08); }
+.recipe-tier-2 { background: rgba(240, 192, 64, 0.08); }
+.recipe-tier-3 { background: rgba(68, 136, 255, 0.08); }
+.recipe-tier-4 { background: rgba(208, 72, 56, 0.08); }
+
+.recipe-tier-1:hover { background: rgba(74, 127, 212, 0.15); }
+.recipe-tier-2:hover { background: rgba(240, 192, 64, 0.15); }
+.recipe-tier-3:hover { background: rgba(68, 136, 255, 0.15); }
+.recipe-tier-4:hover { background: rgba(208, 72, 56, 0.15); }
 
 .recipe-title {
   font-weight: 700;
@@ -867,8 +1123,36 @@ small {
 
 .recipe-actions {
   display: flex;
-  gap: var(--space-xxs);
-  margin-top: var(--space-xxs);
+  gap: var(--space-xs);
+  margin-top: auto;
+  padding-top: var(--space-xs);
+}
+
+.recipe-actions button {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.recipe-actions button[data-action="craft"] {
+  background: var(--accent);
+  color: var(--text-inverse);
+  border: 1px solid var(--accent);
+}
+
+.recipe-actions button[data-action="craft"]:hover:not(:disabled) {
+  filter: brightness(1.2);
+}
+
+.recipe-actions button[data-action="craft"]:disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: not-allowed;
 }
 
 /* ---------- 15. GÖREVLER ---------- */

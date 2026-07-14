@@ -5,8 +5,22 @@ import { addItem, hasItem, removeItem } from "../state.js";
 import { getWeather } from "./weather.js";
 import { BUILDING_TYPES, capacityForLevel } from "../data/animals.js";
 
-export const MARKET_REFRESH_SECONDS = 120; // 2 dakika
-const BULK_DISCOUNT = 0.10; // toplu alımda %10 indirim
+export const MARKET_REFRESH_SECONDS = 120;
+const BULK_DISCOUNT = 0.10;
+
+let lastRefreshTimestamp = Date.now();
+
+function countInventorySlots(state) {
+  return Object.keys(state.inventory.items).length;
+}
+
+function isInventoryFull(state) {
+  return countInventorySlots(state) >= state.inventory.maxSlots;
+}
+
+function hasItemInInventory(state, itemId) {
+  return !!state.inventory.items[itemId];
+}
 
 const MARKET_ANIMALS = [
   { buildingType: "hive", label: "Arı", emoji: "🐝", basePrice: 6 },
@@ -85,12 +99,50 @@ export function generateMarketCycle(state) {
   return listings;
 }
 
-export function tickMarket(state, dtSeconds) {
-  state.market.secondsSinceRefresh += dtSeconds;
-  if (state.market.secondsSinceRefresh >= MARKET_REFRESH_SECONDS || state.market.listings.length === 0) {
-    state.market.secondsSinceRefresh = 0;
+export function tickMarket(state) {
+  const now = Date.now();
+  const elapsed = Math.floor((now - lastRefreshTimestamp) / 1000);
+
+  if (state.market.listings.length === 0) {
+    lastRefreshTimestamp = now;
+    state.market.lastRefreshTimestamp = now;
     state.market.listings = generateMarketCycle(state);
+    state.market.secondsSinceRefresh = 0;
+    return;
   }
+
+  if (elapsed >= MARKET_REFRESH_SECONDS) {
+    lastRefreshTimestamp = now;
+    state.market.lastRefreshTimestamp = now;
+    state.market.listings = generateMarketCycle(state);
+    state.market.secondsSinceRefresh = 0;
+  } else {
+    state.market.secondsSinceRefresh = elapsed;
+  }
+}
+
+export function initMarketTimestamp(savedTimestamp, state) {
+  if (savedTimestamp && typeof savedTimestamp === "number") {
+    lastRefreshTimestamp = savedTimestamp;
+  } else {
+    lastRefreshTimestamp = Date.now();
+  }
+
+  const now = Date.now();
+  const elapsed = Math.floor((now - lastRefreshTimestamp) / 1000);
+
+  if (elapsed >= MARKET_REFRESH_SECONDS || state.market.listings.length === 0) {
+    lastRefreshTimestamp = now;
+    state.market.lastRefreshTimestamp = now;
+    state.market.listings = generateMarketCycle(state);
+    state.market.secondsSinceRefresh = 0;
+  } else {
+    state.market.secondsSinceRefresh = elapsed;
+  }
+}
+
+export function getMarketTimestamp() {
+  return lastRefreshTimestamp;
 }
 
 /** Tekli satın alma: 1 adet alır, kalan azalır. Hayvan ise binaya ekler. */
@@ -109,6 +161,9 @@ export function buyOneSeed(state, listingIndex, deductGold, playerGold) {
     deductGold(cost);
     building.population += 1;
   } else {
+    if (!hasItemInInventory(state, listing.seedId) && isInventoryFull(state)) {
+      return { success: false, reason: "envanter_dolu" };
+    }
     deductGold(cost);
     addItem(state, listing.seedId, 1);
   }
@@ -126,6 +181,10 @@ export function buyAllSeeds(state, listingIndex, deductGold, playerGold) {
     const building = state.buildings[listing.buildingType];
     const capacity = capacityForLevel(listing.buildingType, building.level);
     if (building.population >= capacity) return { success: false, reason: "kapasite_dolu" };
+  } else {
+    if (!hasItemInInventory(state, listing.seedId) && isInventoryFull(state)) {
+      return { success: false, reason: "envanter_dolu" };
+    }
   }
 
   const qty = listing.remaining;

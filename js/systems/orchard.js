@@ -7,6 +7,9 @@ import { daysToSeconds } from "./time.js";
 import { getWeather, rollRarity, RARITY_SELL_MULTIPLIER } from "./weather.js";
 import { addItem, hasItem, removeItem, FIELD_LEVEL_SPEED_BONUS, SEED_SAVE_CHANCE_PER_LEVEL } from "../state.js";
 
+const MIN_HARVESTS = 1;
+const MAX_HARVESTS = 5;
+
 export function computeOrchardGrowthMultiplier(slot, weatherState) {
   const levelBonus = 1 + FIELD_LEVEL_SPEED_BONUS * slot.level;
   const weatherBonus = getWeather(weatherState).growthSpeedMultiplier;
@@ -29,11 +32,15 @@ export function plantTree(state, slotIndex, treeId) {
   const seedConsumed = Math.random() >= seedSaveChance;
   if (seedConsumed) removeItem(state, `${treeId}_fidan`, 1);
 
+  const harvests = Math.floor(Math.random() * (MAX_HARVESTS - MIN_HARVESTS + 1)) + MIN_HARVESTS;
+
   slot.planted = {
     cropId: treeId,
     elapsedSeconds: 0,
     requiredSeconds: daysToSeconds(tree.growthDays),
     ready: false,
+    harvestsLeft: harvests,
+    maxHarvests: harvests,
   };
 
   return { success: true, seedConsumed };
@@ -63,7 +70,13 @@ export function harvestOrchardSlot(state, slotIndex) {
     sellPriceOverride: rarity === "normal" ? undefined : Math.round(tree.sellPrice * RARITY_SELL_MULTIPLIER[rarity]),
   });
 
-  // Ağaçlar neredeyse hep "recurring" -> ağaç kesilmez, sadece yeni meyveye hazırlanır.
+  slot.planted.harvestsLeft--;
+
+  if (slot.planted.harvestsLeft <= 0) {
+    slot.planted = null;
+    return { success: true, treeId: tree.id, qty, rarity, depleted: true };
+  }
+
   if (tree.harvestCycle === "recurring") {
     slot.planted.elapsedSeconds = 0;
     slot.planted.requiredSeconds = daysToSeconds(tree.recurringIntervalDays);
@@ -72,7 +85,15 @@ export function harvestOrchardSlot(state, slotIndex) {
     slot.planted = null;
   }
 
-  return { success: true, treeId: tree.id, qty, rarity };
+  return { success: true, treeId: tree.id, qty, rarity, depleted: false };
+}
+
+/** Ekili slotu manuel olarak söker. */
+export function removePlant(state, slotIndex) {
+  const slot = state.orchard.slots[slotIndex];
+  if (!slot.planted) return { success: false, reason: "hazir_degil" };
+  slot.planted = null;
+  return { success: true };
 }
 
 export const ORCHARD_UPGRADE_BASE_COST = 60;

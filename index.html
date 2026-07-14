@@ -12,23 +12,35 @@
 
     <div id="main-layout">
       <aside id="inventory-panel">
-        <div id="inventory-filters" class="tab-bar small"></div>
-        <div id="inventory-grid" class="inventory-grid"></div>
+        <div class="panel-top">
+          <div id="inventory-filters" class="tab-bar small"></div>
+          <div id="inventory-grid" class="inventory-grid"></div>
+        </div>
+        <div class="panel-bottom">
+          <div id="sell-tabs" class="tab-bar">
+            <button data-sell-mode="single" class="active">Tekli</button>
+            <button data-sell-mode="bulk">Toplu</button>
+          </div>
+          <div id="quick-sell-zone" class="quick-sell-zone"></div>
+        </div>
       </aside>
 
       <section id="middle-panel">
-        <div id="middle-tabs" class="tab-bar">
-          <button data-tab="field" class="active">Tarla</button>
-          <button data-tab="orchard">Bahçe</button>
+        <div class="panel-top">
+          <div id="middle-tabs" class="tab-bar">
+            <button data-tab="field" class="active">Tarla</button>
+            <button data-tab="orchard">Bahçe</button>
+          </div>
+          <div id="middle-content"></div>
         </div>
-        <div id="middle-content"></div>
-
-        <div id="building-tabs" class="tab-bar">
-          <button data-tab="hive" class="active">Kovan</button>
-          <button data-tab="coop">Kümes</button>
-          <button data-tab="barn">Ahır</button>
+        <div class="panel-bottom">
+          <div id="building-tabs" class="tab-bar">
+            <button data-tab="hive" class="active">Kovan</button>
+            <button data-tab="coop">Kümes</button>
+            <button data-tab="barn">Ahır</button>
+          </div>
+          <div id="building-content"></div>
         </div>
-        <div id="building-content"></div>
       </section>
 
       <aside id="right-panel">

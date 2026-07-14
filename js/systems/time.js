@@ -1,33 +1,45 @@
 // js/systems/time.js
-// Zaman sistemi: 1 gün = 60 gerçek saniye, 1 mevsim = 10 gün (600 sn / 10 dk),
-// 1 yıl = 4 mevsim = 40 gün (2400 sn / 40 dk). Ay katmanı yok — kullanıcı isteği ile kaldırıldı.
+// Zaman sistemi: 1 gün = 12 gerçek saniye, 1 yıl = 365 gün = 12 ay.
+// Mevsimler aylara bağlı: Kış(Oca-Şub-Mar), İlkbahar(Nis-May-Haz), Yaz(Tem-Ağu-Eyl), Sonbahar(Eki-Kas-Ara).
 
-export const DAY_SECONDS = 60;
-export const SEASON_DAYS = 10;
-export const YEAR_DAYS = SEASON_DAYS * 4; // 40
-export const SEASON_SECONDS = DAY_SECONDS * SEASON_DAYS; // 600 sn = 10 dk
-export const YEAR_SECONDS = SEASON_SECONDS * 4; // 2400 sn = 40 dk
+export const DAY_SECONDS = 12;
+
+export const MONTHS = [
+  { name: "Ocak",    days: 31, season: "kış" },
+  { name: "Şubat",   days: 28, season: "kış" },
+  { name: "Mart",    days: 31, season: "kış" },
+  { name: "Nisan",   days: 30, season: "ilkbahar" },
+  { name: "Mayıs",   days: 31, season: "ilkbahar" },
+  { name: "Haziran", days: 30, season: "ilkbahar" },
+  { name: "Temmuz",  days: 31, season: "yaz" },
+  { name: "Ağustos", days: 31, season: "yaz" },
+  { name: "Eylül",   days: 30, season: "yaz" },
+  { name: "Ekim",    days: 31, season: "sonbahar" },
+  { name: "Kasım",   days: 30, season: "sonbahar" },
+  { name: "Aralık",  days: 31, season: "sonbahar" },
+];
 
 export const SEASONS = ["ilkbahar", "yaz", "sonbahar", "kış"];
+export const YEAR_DAYS = MONTHS.reduce((sum, m) => sum + m.days, 0); // 365
+export const MONTHS_PER_YEAR = 12;
 
 export function createInitialTime() {
   return {
     year: 1,
-    seasonIndex: 0, // 0..3 -> SEASONS
-    day: 1, // 1..SEASON_DAYS
+    month: 0,
+    day: 1,
     secondsIntoDay: 0,
   };
 }
 
 /**
- * Zamanı ileri alır. Mevsim/yıl değiştiğinde true döner (dışarıda hava/pazar
- * gibi sistemlerin tepki vermesi için event listesi döner).
+ * Zamanı ileri alır. Ay/yıl/sevsim değiştiğinde event objesi döner.
  * @param {object} time state.time
  * @param {number} dtSeconds geçen gerçek saniye
- * @returns {{dayChanged:boolean, seasonChanged:boolean, yearChanged:boolean}}
+ * @returns {{dayChanged:boolean, monthChanged:boolean, seasonChanged:boolean, yearChanged:boolean}}
  */
 export function tickTime(time, dtSeconds) {
-  const events = { dayChanged: false, seasonChanged: false, yearChanged: false };
+  const events = { dayChanged: false, monthChanged: false, seasonChanged: false, yearChanged: false };
   time.secondsIntoDay += dtSeconds;
 
   while (time.secondsIntoDay >= DAY_SECONDS) {
@@ -35,15 +47,23 @@ export function tickTime(time, dtSeconds) {
     time.day += 1;
     events.dayChanged = true;
 
-    if (time.day > SEASON_DAYS) {
+    const currentMonthData = MONTHS[time.month];
+    if (time.day > currentMonthData.days) {
       time.day = 1;
-      time.seasonIndex += 1;
-      events.seasonChanged = true;
+      const oldMonth = time.month;
+      time.month += 1;
+      events.monthChanged = true;
 
-      if (time.seasonIndex >= SEASONS.length) {
-        time.seasonIndex = 0;
+      if (time.month >= MONTHS_PER_YEAR) {
+        time.month = 0;
         time.year += 1;
         events.yearChanged = true;
+      }
+
+      const newSeason = MONTHS[time.month].season;
+      const oldSeason = MONTHS[oldMonth].season;
+      if (newSeason !== oldSeason) {
+        events.seasonChanged = true;
       }
     }
   }
@@ -52,12 +72,16 @@ export function tickTime(time, dtSeconds) {
 }
 
 export function currentSeason(time) {
-  return SEASONS[time.seasonIndex];
+  return MONTHS[time.month].season;
+}
+
+export function currentMonthName(time) {
+  return MONTHS[time.month].name;
 }
 
 export function formatTime(time) {
-  const season = currentSeason(time);
-  return `Yıl ${time.year} · ${season} · Gün ${time.day}/${SEASON_DAYS}`;
+  const monthName = MONTHS[time.month].name;
+  return `Yıl ${time.year} · ${time.day} ${monthName}`;
 }
 
 export function daysToSeconds(days) {

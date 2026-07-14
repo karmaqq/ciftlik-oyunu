@@ -4,6 +4,9 @@ import { daysToSeconds } from "./time.js";
 import { getWeather, rollRarity, RARITY_SELL_MULTIPLIER } from "./weather.js";
 import { addItem, hasItem, removeItem, FIELD_LEVEL_SPEED_BONUS, SEED_SAVE_CHANCE_PER_LEVEL } from "../state.js";
 
+const MIN_HARVESTS = 1;
+const MAX_HARVESTS = 5;
+
 /** Slotun toplam büyüme hızı çarpanını hesaplar (tarla seviyesi + hava). */
 export function computeGrowthMultiplier(slot, weatherState) {
   const levelBonus = 1 + FIELD_LEVEL_SPEED_BONUS * slot.level;
@@ -29,11 +32,15 @@ export function plantSeed(state, slotIndex, cropId) {
     removeItem(state, `${cropId}_tohum`, 1);
   }
 
+  const harvests = Math.floor(Math.random() * (MAX_HARVESTS - MIN_HARVESTS + 1)) + MIN_HARVESTS;
+
   slot.planted = {
     cropId,
     elapsedSeconds: 0,
     requiredSeconds: daysToSeconds(crop.growthDays),
     ready: false,
+    harvestsLeft: harvests,
+    maxHarvests: harvests,
   };
 
   return { success: true, seedConsumed };
@@ -58,12 +65,19 @@ export function harvestSlot(state, slotIndex) {
 
   const crop = getCrop(slot.planted.cropId);
   const rarity = rollRarity(state.weather);
-  const qty = 1; // temel hasat miktarı (ileride tarla seviyesine göre arttırılabilir)
+  const qty = 1;
 
   addItem(state, crop.id, qty, {
     rarity,
     sellPriceOverride: rarity === "normal" ? undefined : Math.round(crop.sellPrice * RARITY_SELL_MULTIPLIER[rarity]),
   });
+
+  slot.planted.harvestsLeft--;
+
+  if (slot.planted.harvestsLeft <= 0) {
+    slot.planted = null;
+    return { success: true, cropId: crop.id, qty, rarity, depleted: true };
+  }
 
   if (crop.harvestCycle === "recurring") {
     slot.planted.elapsedSeconds = 0;
@@ -73,7 +87,15 @@ export function harvestSlot(state, slotIndex) {
     slot.planted = null;
   }
 
-  return { success: true, cropId: crop.id, qty, rarity };
+  return { success: true, cropId: crop.id, qty, rarity, depleted: false };
+}
+
+/** Ekili slotu manuel olarak söker. */
+export function removePlant(state, slotIndex) {
+  const slot = state.field.slots[slotIndex];
+  if (!slot.planted) return { success: false, reason: "hazir_degil" };
+  slot.planted = null;
+  return { success: true };
 }
 
 export function unlockSlot(state, slotIndex, cost, playerCanAfford, deductGold) {
