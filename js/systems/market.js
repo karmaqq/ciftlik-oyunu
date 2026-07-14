@@ -4,6 +4,7 @@ import { TREES } from "../data/trees.js";
 import { addItem, hasItem, removeItem } from "../state.js";
 import { getWeather } from "./weather.js";
 import { BUILDING_TYPES, capacityForLevel } from "../data/animals.js";
+import { getCalendarBuyMultiplier, getCalendarSellMultiplier } from "./calendarTrade.js";
 
 export const MARKET_REFRESH_SECONDS = 120;
 const BULK_DISCOUNT = 0.10;
@@ -35,11 +36,14 @@ function randomInt(min, max) {
 /** Yeni market döngüsü: kategori bazlı slot sistemi. */
 export function generateMarketCycle(state) {
   const seedSlots = state.market.seedSlots;
-  const saplingSlots = state.market.saplingSlots;
+  const saplingSlots = state.features && state.features.orchard ? state.market.saplingSlots : 0;
 
   const listings = [];
 
+  const calendarActive = state.features && state.features.calendar;
+
   function rollPriceMultiplier() {
+    if (!calendarActive) return 1;
     const roll = Math.random();
     if (roll < 0.05) return 0;         // %5 bedava
     if (roll < 0.40) return 0.01 + Math.random() * 0.98; // %35 indirim (0.01–0.99)
@@ -51,7 +55,10 @@ export function generateMarketCycle(state) {
   const seedPool = CROPS.map((c) => ({ itemId: c.id, seedId: `${c.id}_tohum`, basePrice: c.buyPrice }));
   const shuffledSeeds = [...seedPool].sort(() => Math.random() - 0.5).slice(0, seedSlots);
   for (const entry of shuffledSeeds) {
-    const priceMultiplier = rollPriceMultiplier();
+    let priceMultiplier = rollPriceMultiplier();
+    if (calendarActive) {
+      priceMultiplier *= getCalendarBuyMultiplier(state, "seed");
+    }
     const remaining = randomInt(1, 12);
     listings.push({
       itemId: entry.itemId,
@@ -67,7 +74,10 @@ export function generateMarketCycle(state) {
   const saplingPool = TREES.map((t) => ({ itemId: t.id, seedId: `${t.id}_fidan`, basePrice: t.buyPrice }));
   const shuffledSaplings = [...saplingPool].sort(() => Math.random() - 0.5).slice(0, saplingSlots);
   for (const entry of shuffledSaplings) {
-    const priceMultiplier = rollPriceMultiplier();
+    let priceMultiplier = rollPriceMultiplier();
+    if (calendarActive) {
+      priceMultiplier *= getCalendarBuyMultiplier(state, "sapling");
+    }
     const remaining = randomInt(1, 12);
     listings.push({
       itemId: entry.itemId,
@@ -80,8 +90,15 @@ export function generateMarketCycle(state) {
     });
   }
 
-  // Hayvanlar: sabit 3 slot, her biri 1 adet, rastgele fiyat
-  for (const entry of MARKET_ANIMALS) {
+  // Hayvanlar: sadece satın alınmış binalar için
+  const activeAnimals = MARKET_ANIMALS.filter((a) => {
+    if (a.buildingType === "hive") return state.features && state.features.hive;
+    if (a.buildingType === "coop") return state.features && state.features.coop;
+    if (a.buildingType === "barn") return state.features && state.features.barn;
+    return false;
+  });
+
+  for (const entry of activeAnimals) {
     const priceMultiplier = rollPriceMultiplier();
     const finalPrice = Math.max(0, Math.round(entry.basePrice * priceMultiplier));
     listings.push({
@@ -116,6 +133,9 @@ export function tickMarket(state) {
     state.market.lastRefreshTimestamp = now;
     state.market.listings = generateMarketCycle(state);
     state.market.secondsSinceRefresh = 0;
+    if (window._gameLog) {
+      window._gameLog("Pazar yenilendi! Yeni ürünler mevcut.", "trade");
+    }
   } else {
     state.market.secondsSinceRefresh = elapsed;
   }
@@ -151,13 +171,18 @@ export function buyOneSeed(state, listingIndex, deductGold, playerGold) {
   if (!listing) return { success: false, reason: "gecersiz_liste" };
   if (listing.remaining <= 0) return { success: false, reason: "tukendi" };
 
+  if (listing.category === "animal") {
+    if (!state.features || !state.features[listing.buildingType]) return { success: false, reason: "bina_kilitli" };
+    const building = state.buildings[listing.buildingType];
+    const capacity = capacityForLevel(listing.buildingType, building.level);
+    if (building.population >= capacity) return { success: false, reason: "kapasite_dolu" };
+  }
+
   const cost = listing.pricePerUnit;
   if (playerGold < cost) return { success: false, reason: "yetersiz_altin" };
 
   if (listing.category === "animal") {
     const building = state.buildings[listing.buildingType];
-    const capacity = capacityForLevel(listing.buildingType, building.level);
-    if (building.population >= capacity) return { success: false, reason: "kapasite_dolu" };
     deductGold(cost);
     building.population += 1;
   } else {
@@ -178,6 +203,7 @@ export function buyAllSeeds(state, listingIndex, deductGold, playerGold) {
   if (listing.remaining <= 0) return { success: false, reason: "tukendi" };
 
   if (listing.category === "animal") {
+    if (!state.features || !state.features[listing.buildingType]) return { success: false, reason: "bina_kilitli" };
     const building = state.buildings[listing.buildingType];
     const capacity = capacityForLevel(listing.buildingType, building.level);
     if (building.population >= capacity) return { success: false, reason: "kapasite_dolu" };
@@ -222,7 +248,12 @@ export function sellItem(state, itemId, qty, sellPrice, addGold, itemMeta) {
 
   const actualPrice = (itemMeta && itemMeta.sellPriceOverride) || sellPrice;
   removeItem(state, itemId, qty);
-  const total = actualPrice * qty;
+
+  // Takvim ticaret satış çarpanı uygula
+  const rarity = (itemMeta && itemMeta.rarity) || "normal";
+  const calendarSellMult = getCalendarSellMultiplier(state, rarity);
+
+  const total = Math.round(actualPrice * qty * calendarSellMult);
   addGold(total);
   return { success: true, total };
 }

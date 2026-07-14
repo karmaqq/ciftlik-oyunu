@@ -1,8 +1,9 @@
 // js/systems/field.js
 import { getCrop } from "../data/crops.js";
+import { itemDisplayName, itemEmoji } from "../data/items.js";
 import { daysToSeconds } from "./time.js";
 import { getWeather, rollRarity, RARITY_SELL_MULTIPLIER } from "./weather.js";
-import { addItem, hasItem, removeItem, FIELD_LEVEL_SPEED_BONUS, SEED_SAVE_CHANCE_PER_LEVEL } from "../state.js";
+import { addItem, hasItem, removeItem, FIELD_LEVEL_SPEED_BONUS } from "../state.js";
 
 const MIN_HARVESTS = 1;
 const MAX_HARVESTS = 5;
@@ -26,11 +27,7 @@ export function plantSeed(state, slotIndex, cropId) {
   const crop = getCrop(cropId);
   if (!canPlant(state, slot, cropId)) return { success: false, reason: "ekilemez" };
 
-  const seedSaveChance = SEED_SAVE_CHANCE_PER_LEVEL * slot.seedSaveLevel;
-  const seedConsumed = Math.random() >= seedSaveChance;
-  if (seedConsumed) {
-    removeItem(state, `${cropId}_tohum`, 1);
-  }
+  removeItem(state, `${cropId}_tohum`, 1);
 
   const harvests = Math.floor(Math.random() * (MAX_HARVESTS - MIN_HARVESTS + 1)) + MIN_HARVESTS;
 
@@ -43,7 +40,7 @@ export function plantSeed(state, slotIndex, cropId) {
     maxHarvests: harvests,
   };
 
-  return { success: true, seedConsumed };
+  return { success: true };
 }
 
 /** Her tick'te (main loop) çağrılır: tüm açık/ekili slotların büyümesini ilerletir. */
@@ -54,6 +51,10 @@ export function tickFieldGrowth(state, dtSeconds) {
     slot.planted.elapsedSeconds += dtSeconds * mult;
     if (slot.planted.elapsedSeconds >= slot.planted.requiredSeconds) {
       slot.planted.ready = true;
+      const crop = getCrop(slot.planted.cropId);
+      if (crop && window._gameLog) {
+        window._gameLog(`${itemEmoji(crop.id)} ${itemDisplayName(crop.id)} hasat için hazır`, "info");
+      }
     }
   }
 }

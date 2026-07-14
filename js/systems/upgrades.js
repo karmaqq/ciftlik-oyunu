@@ -1,6 +1,6 @@
 // js/systems/upgrades.js
 import {
-  MAX_FIELD_LEVEL, MAX_SEED_SAVE_LEVEL,
+  MAX_FIELD_LEVEL,
   FIELD_TOTAL_SLOTS, ORCHARD_TOTAL_SLOTS, INVENTORY_TOTAL_SLOTS,
   ORCHARD_START_UNLOCKED, FIELD_START_UNLOCKED,
   MAX_MARKET_SLOTS_PER_CATEGORY,
@@ -11,11 +11,6 @@ import { buildingUpgradeCost } from "./buildings.js";
 
 // ---- Mevcut fonksiyonlar ----
 
-export const SEED_SAVE_UPGRADE_BASE_COST = 50;
-export function seedSaveUpgradeCost(currentLevel) {
-  return Math.round(SEED_SAVE_UPGRADE_BASE_COST * Math.pow(1.4, currentLevel));
-}
-
 function upgradeSlotLevel(slot, costFn, maxLevel, deductGold, playerGold) {
   if (slot.level >= maxLevel) return { success: false, reason: "max_seviye" };
   const cost = costFn(slot.level);
@@ -25,33 +20,14 @@ function upgradeSlotLevel(slot, costFn, maxLevel, deductGold, playerGold) {
   return { success: true, cost, newLevel: slot.level };
 }
 
-function upgradeSeedSave(slot, deductGold, playerGold) {
-  if (slot.seedSaveLevel >= MAX_SEED_SAVE_LEVEL) return { success: false, reason: "max_seviye" };
-  const cost = seedSaveUpgradeCost(slot.seedSaveLevel);
-  if (playerGold < cost) return { success: false, reason: "yetersiz_altin" };
-  deductGold(cost);
-  slot.seedSaveLevel += 1;
-  return { success: true, cost, newLevel: slot.seedSaveLevel };
-}
-
 export function upgradeFieldSlot(state, slotIndex, deductGold, playerGold) {
   const slot = state.field.slots[slotIndex];
   return upgradeSlotLevel(slot, fieldUpgradeCost, MAX_FIELD_LEVEL, deductGold, playerGold);
 }
 
-export function upgradeFieldSeedSave(state, slotIndex, deductGold, playerGold) {
-  const slot = state.field.slots[slotIndex];
-  return upgradeSeedSave(slot, deductGold, playerGold);
-}
-
 export function upgradeOrchardSlot(state, slotIndex, deductGold, playerGold) {
   const slot = state.orchard.slots[slotIndex];
   return upgradeSlotLevel(slot, orchardUpgradeCost, MAX_FIELD_LEVEL, deductGold, playerGold);
-}
-
-export function upgradeOrchardSeedSave(state, slotIndex, deductGold, playerGold) {
-  const slot = state.orchard.slots[slotIndex];
-  return upgradeSeedSave(slot, deductGold, playerGold);
 }
 
 export const FIELD_SLOT_UNLOCK_BASE_COST = 80;
@@ -119,4 +95,53 @@ export function upgradeMarketSlots(state, category, deductGold, playerGold) {
 
 export function upgradeBuildingFromPanel(state, buildingType, deductGold, playerGold) {
   return upgradeBuilding(state, buildingType, deductGold, playerGold);
+}
+
+// ---- Özellik (Feature) Satın Alma ----
+
+export const FEATURE_COSTS = {
+  calendar: 100,
+  quickSell: 75,
+  orchard: 150,
+  hive: 200,
+  coop: 250,
+  barn: 400,
+};
+
+export const FEATURE_NAMES = {
+  calendar: "Takvim Ticaret",
+  quickSell: "Hızlı Satış",
+  orchard: "Bahçe",
+  hive: "Kovan",
+  coop: "Kümes",
+  barn: "Ahır",
+};
+
+export const FEATURE_EMOJIS = {
+  calendar: "📅",
+  quickSell: "💸",
+  orchard: "🌳",
+  hive: "🐝",
+  coop: "🐔",
+  barn: "🐄",
+};
+
+export const FEATURE_DESCRIPTIONS = {
+  calendar: "Mevsimlere göre fiyat dalgalanmaları ve ticaret bonusları",
+  quickSell: "Envanterden sürükle-bırak ile hızlı satış",
+  orchard: "Meyve ağaçları dik ve hasat et",
+  hive: "Arı yetiştir, bal üret",
+  coop: "Tavuk yetiştir, yumurta üret",
+  barn: "İnek yetiştir, süt üret",
+};
+
+export function buyFeature(state, featureId, deductGold, playerGold) {
+  if (!state.features) return { success: false, reason: "gecersiz_ozellik" };
+  if (state.features[featureId]) return { success: false, reason: "zaten_acik" };
+  const cost = FEATURE_COSTS[featureId];
+  if (cost === undefined) return { success: false, reason: "gecersiz_ozellik" };
+  if (playerGold < cost) return { success: false, reason: "yetersiz_altin" };
+  deductGold(cost);
+  state.features[featureId] = true;
+  return { success: true, cost };
 }

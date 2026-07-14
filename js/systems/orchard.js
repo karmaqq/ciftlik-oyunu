@@ -3,9 +3,10 @@
 // bilinçli tutuldu ki iki sistem ayrı ayrı dengelenebilsin (ör. ağaç upgrade
 // maliyetleri tarladan farklı ölçeklenebilir).
 import { getTree } from "../data/trees.js";
+import { itemDisplayName, itemEmoji } from "../data/items.js";
 import { daysToSeconds } from "./time.js";
 import { getWeather, rollRarity, RARITY_SELL_MULTIPLIER } from "./weather.js";
-import { addItem, hasItem, removeItem, FIELD_LEVEL_SPEED_BONUS, SEED_SAVE_CHANCE_PER_LEVEL } from "../state.js";
+import { addItem, hasItem, removeItem, FIELD_LEVEL_SPEED_BONUS } from "../state.js";
 
 const MIN_HARVESTS = 1;
 const MAX_HARVESTS = 5;
@@ -28,9 +29,7 @@ export function plantTree(state, slotIndex, treeId) {
   const tree = getTree(treeId);
   if (!canPlantTree(state, slot, treeId)) return { success: false, reason: "ekilemez" };
 
-  const seedSaveChance = SEED_SAVE_CHANCE_PER_LEVEL * slot.seedSaveLevel;
-  const seedConsumed = Math.random() >= seedSaveChance;
-  if (seedConsumed) removeItem(state, `${treeId}_fidan`, 1);
+  removeItem(state, `${treeId}_fidan`, 1);
 
   const harvests = Math.floor(Math.random() * (MAX_HARVESTS - MIN_HARVESTS + 1)) + MIN_HARVESTS;
 
@@ -43,7 +42,7 @@ export function plantTree(state, slotIndex, treeId) {
     maxHarvests: harvests,
   };
 
-  return { success: true, seedConsumed };
+  return { success: true };
 }
 
 export function tickOrchardGrowth(state, dtSeconds) {
@@ -53,6 +52,10 @@ export function tickOrchardGrowth(state, dtSeconds) {
     slot.planted.elapsedSeconds += dtSeconds * mult;
     if (slot.planted.elapsedSeconds >= slot.planted.requiredSeconds) {
       slot.planted.ready = true;
+      const tree = getTree(slot.planted.cropId);
+      if (tree && window._gameLog) {
+        window._gameLog(`${itemEmoji(tree.id)} ${itemDisplayName(tree.id)} hasat için hazır`, "info");
+      }
     }
   }
 }

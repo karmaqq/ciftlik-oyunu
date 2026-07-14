@@ -18,7 +18,7 @@ export function categorizeItem(itemId) {
   return "diger";
 }
 
-export const FILTERS = ["tümü", "tohum", "fidan", "üretim", "diğer"];
+export const FILTERS = ["tümü", "tohum", "fidan", "üretim"];
 
 export function getInventoryList(state, { filter = "tümü", sortBy = "isim" } = {}) {
   let list = Object.entries(state.inventory.items).map(([itemId, data]) => ({
@@ -29,9 +29,7 @@ export function getInventoryList(state, { filter = "tümü", sortBy = "isim" } =
   }));
 
   if (filter === "üretim") {
-    list = list.filter((i) => ["hasat", "hayvan_urunu", "uretim", "kaliteli"].includes(i.category));
-  } else if (filter === "diğer") {
-    list = list.filter((i) => !["tohum", "fidan", "hasat", "hayvan_urunu", "uretim", "kaliteli"].includes(i.category));
+    list = list.filter((i) => i.category === "uretim");
   } else if (filter !== "tümü") {
     list = list.filter((i) => i.category === filter);
   }

@@ -6,13 +6,13 @@ import { tickFieldGrowth } from "./systems/field.js";
 import { tickOrchardGrowth } from "./systems/orchard.js";
 import { tickBuildings } from "./systems/buildings.js";
 import { tickMarket, initMarketTimestamp, getMarketTimestamp } from "./systems/market.js";
-import { initUI, render, checkHints } from "./ui.js";
+import { initUI, render, tickUpdate, checkHints } from "./ui.js";
 import { ensureQuestPool } from "./systems/quests.js";
 import { initGame, saveGame, startAutoSave, clearSave } from "./systems/save.js";
+import { getCalendarTradeInfo } from "./systems/calendarTrade.js";
 
 const TICK_MS = 1000;
 
-const SEASON_EMOJI = { ilkbahar: "🌸", yaz: "☀️", sonbahar: "🍂", kış: "❄️" };
 const SEASON_EFFECT = {
   ilkbahar: "Çoğu ürün için uygun mevsim — ekime başla!",
   yaz: "Sıcak hava bazı büyümeleri hızlandırır — tropik meyveler için ideal.",
@@ -52,12 +52,34 @@ function main() {
     trade: "log-trade",
   };
 
-  function log(message, type = "info") {
+  function log(message, type = "info", mergeKey = null) {
     const time = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
     const icon = TYPE_ICON[type] || "ℹ️";
     const cls = TYPE_CLASS[type] || "log-info";
+
+    if (mergeKey) {
+      const existing = logEl.querySelector(`[data-merge-key="${mergeKey}"]`);
+      if (existing) {
+        const msgEl = existing.querySelector(`.${cls}`);
+        if (msgEl) msgEl.textContent = message;
+        return;
+      }
+    }
+
     const line = document.createElement("div");
-    line.innerHTML = `<span class="log-time">${time}</span> <span class="log-icon">${icon}</span> <span class="${cls}">${message}</span>`;
+    if (mergeKey) line.setAttribute("data-merge-key", mergeKey);
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "log-time";
+    timeSpan.textContent = time;
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "log-icon";
+    iconSpan.textContent = icon;
+    const msgSpan = document.createElement("span");
+    msgSpan.className = cls;
+    msgSpan.textContent = message;
+    line.appendChild(timeSpan);
+    line.appendChild(iconSpan);
+    line.appendChild(msgSpan);
     logEl.prepend(line);
     while (logEl.children.length > 50) logEl.removeChild(logEl.lastChild);
   }
@@ -76,17 +98,19 @@ function main() {
     location.reload();
   });
 
+  window._gameLog = log;
+
   initMarketTimestamp(state.market.lastRefreshTimestamp, state);
 
   render();
   ensureQuestPool(state);
 
   if (isNew) {
-    log("🌱 Çiftliğe hoş geldin!", "info");
-    log("📋 Görevler sekmesinden görevlerini görebilirsin.", "info");
-    log("💡 İpucu: Tohumları envanterden tarlaya sürükle.", "info");
+    log("Çiftliğe hoş geldin!", "info");
+    log("Görevler sekmesinden görevlerini görebilirsin.", "info");
+    log("İpucu: Tohumları envanterden tarlaya sürükle.", "info");
   } else {
-    log("💾 Kayıtlı oyun yüklendi!", "info");
+    log("Kayıtlı oyun yüklendi!", "info");
   }
 
   startAutoSave(state);
@@ -114,13 +138,22 @@ function main() {
 
     if (events.seasonChanged) {
       const s = currentSeason(state.time);
-      const emoji = SEASON_EMOJI[s] || "";
       const effect = SEASON_EFFECT[s] || "";
-      log(`${emoji} ${s.charAt(0).toUpperCase() + s.slice(1)} başladı! ${effect}`, "season");
+      log(`${s.charAt(0).toUpperCase() + s.slice(1)} başladı! ${effect}`, "season");
+
+      // Takvim ticaret bilgilendirmesi
+      const calendarInfo = getCalendarTradeInfo(state);
+      if (calendarInfo.active) {
+        const buyMult = calendarInfo.buyMultiplierSeed;
+        const sellMult = calendarInfo.sellMultiplier;
+        const buyDir = buyMult < 1 ? "ucuzladı" : buyMult > 1 ? "zamlı" : "normal";
+        const sellDir = sellMult > 1 ? "arttı" : sellMult < 1 ? "düştü" : "normal";
+        log(`📅 Takvim Ticaret: Alış ${buyDir}, Satış ${sellDir}`, "trade");
+      }
     }
 
     if (events.yearChanged) {
-      log(`Yıl ${state.time.year} başladı! 🎉`, "season");
+      log(`Yıl ${state.time.year} başladı!`, "season");
     }
 
     tickFieldGrowth(state, 1);
@@ -131,13 +164,24 @@ function main() {
     const queueAdded = processQueue(state);
     for (const item of queueAdded) {
       const name = item.itemId;
-      log(`📦 Kuyruktan eklendi: ${name} x${item.qty}`, "info");
+      const existing = logEl.querySelector(`[data-merge-key="queue-${name}"]`);
+      if (existing) {
+        const msgEl = existing.querySelector(".log-info");
+        if (msgEl) {
+          const match = msgEl.textContent.match(/(\d+)\s*adet/);
+          const prev = match ? parseInt(match[1]) : 0;
+          msgEl.textContent = `Kuyruktan eklendi: ${name} ${prev + item.qty} adet`;
+        }
+      } else {
+        log(`Kuyruktan eklendi: ${name} ${item.qty} adet`, "info", `queue-${name}`);
+      }
     }
 
-    render();
+    tickUpdate();
   }, TICK_MS);
 
   let currentTooltipTarget = null;
+  window._currentTooltipTarget = null;
 
   function showTooltip(target) {
     const id = target.getAttribute("data-tooltip");
@@ -147,11 +191,13 @@ function main() {
     ttEl.classList.add("visible");
     positionTooltip(target);
     currentTooltipTarget = target;
+    window._currentTooltipTarget = target;
   }
 
   function hideTooltip() {
     ttEl.classList.remove("visible");
     currentTooltipTarget = null;
+    window._currentTooltipTarget = null;
   }
 
   document.addEventListener("mouseover", (e) => {

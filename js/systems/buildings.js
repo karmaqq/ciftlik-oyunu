@@ -2,9 +2,8 @@
 import { BUILDING_TYPES, MAX_BUILDING_LEVEL, capacityForLevel, speedMultiplierForLevel } from "../data/animals.js";
 import { daysToSeconds } from "./time.js";
 import { getWeather } from "./weather.js";
-import { addItem } from "../state.js";
 
-/** Her tick'te binaların üretim sayaçlarını ilerletir; hazır olan üretimleri otomatik envantere ekler. */
+/** Her tick'te binaların üretim sayaçlarını ilerletir; hazır olan ürünleri building.stored'a ekler. */
 export function tickBuildings(state, dtSeconds) {
   for (const type of Object.keys(BUILDING_TYPES)) {
     const def = BUILDING_TYPES[type];
@@ -17,11 +16,11 @@ export function tickBuildings(state, dtSeconds) {
     const intervalSeconds = daysToSeconds(def.baseProductionDays);
     if (building.sinceLastProduction >= intervalSeconds) {
       building.sinceLastProduction -= intervalSeconds;
-      const producedQty = Math.max(1, Math.round(building.population / 4));
-      addItem(state, def.productId, producedQty);
+      const producedQty = building.population;
+      building.stored[def.productId] = (building.stored[def.productId] || 0) + producedQty;
 
       if (def.secondaryProductId && Math.random() < def.secondaryChance) {
-        addItem(state, def.secondaryProductId, 1);
+        building.stored[def.secondaryProductId] = (building.stored[def.secondaryProductId] || 0) + 1;
       }
     }
   }
@@ -40,19 +39,25 @@ export function buyAnimal(state, buildingType, deductGold, playerGold) {
   return { success: true };
 }
 
-export const BUILDING_UPGRADE_BASE_COST = 150;
-export function buildingUpgradeCost(currentLevel) {
-  return Math.round(BUILDING_UPGRADE_BASE_COST * Math.pow(1.5, currentLevel));
+const UPGRADE_COST = {
+  hive: { base: 50,  mult: 1.6 },
+  coop: { base: 80,  mult: 1.5 },
+  barn: { base: 120, mult: 1.5 },
+};
+
+export function buildingUpgradeCost(currentLevel, buildingType) {
+  const cfg = UPGRADE_COST[buildingType] || UPGRADE_COST.hive;
+  return Math.round(cfg.base * Math.pow(cfg.mult, currentLevel));
 }
 
 export function upgradeBuilding(state, buildingType, deductGold, playerGold) {
   const building = state.buildings[buildingType];
   if (building.level >= MAX_BUILDING_LEVEL) return { success: false, reason: "max_seviye" };
 
-  const cost = buildingUpgradeCost(building.level);
+  const cost = buildingUpgradeCost(building.level, buildingType);
   if (playerGold < cost) return { success: false, reason: "yetersiz_altin" };
 
   deductGold(cost);
   building.level += 1;
-  return { success: true, cost };
+  return { success: true, cost, newLevel: building.level };
 }

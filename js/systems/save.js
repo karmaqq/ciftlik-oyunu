@@ -17,8 +17,10 @@ export function stateFromJSON(json) {
   const saved = JSON.parse(json);
   const fresh = createInitialState();
 
-  function merge(target, source) {
+  function merge(target, source, path) {
     for (const key of Object.keys(source)) {
+      if (path === "inventory.items") continue;
+
       if (!(key in target)) {
         target[key] = source[key];
       } else if (
@@ -29,12 +31,12 @@ export function stateFromJSON(json) {
         target[key] !== null &&
         !Array.isArray(target[key])
       ) {
-        merge(target[key], source[key]);
+        merge(target[key], source[key], path ? `${path}.${key}` : key);
       }
     }
   }
 
-  merge(saved, fresh);
+  merge(saved, fresh, "");
   return saved;
 }
 
@@ -45,7 +47,7 @@ export function saveGame(state) {
     localStorage.setItem(SAVE_KEY, json);
     return true;
   } catch (e) {
-    console.warn("Kayıt hatası:", e);
+    if (window._gameLog) window._gameLog("Kayıt hatası!", "error");
     return false;
   }
 }
@@ -57,7 +59,7 @@ export function loadGame() {
     if (!json) return null;
     return stateFromJSON(json);
   } catch (e) {
-    console.warn("Yükleme hatası:", e);
+    if (window._gameLog) window._gameLog("Yükleme hatası!", "error");
     return null;
   }
 }

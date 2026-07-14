@@ -18,12 +18,9 @@ import { craftRecipe, canCraft } from "./systems/crafting.js";
 import { ensureQuestPool, claimQuest, registerProgress } from "./systems/quests.js";
 import {
   upgradeFieldSlot,
-  upgradeFieldSeedSave,
   upgradeOrchardSlot,
-  upgradeOrchardSeedSave,
   fieldSlotUnlockCost,
   orchardSlotUnlockCost,
-  seedSaveUpgradeCost,
   upgradeInventorySlots,
   upgradeFieldSlots,
   upgradeOrchardSlots,
@@ -31,13 +28,20 @@ import {
   upgradeBuildingFromPanel,
   inventorySlotCost,
   marketSlotCost,
+  buyFeature,
+  FEATURE_COSTS,
+  FEATURE_NAMES,
+  FEATURE_EMOJIS,
+  FEATURE_DESCRIPTIONS,
 } from "./systems/upgrades.js";
 import {
-  FIELD_LEVEL_SPEED_BONUS, SEED_SAVE_CHANCE_PER_LEVEL, MAX_FIELD_LEVEL, MAX_SEED_SAVE_LEVEL,
+  FIELD_LEVEL_SPEED_BONUS, MAX_FIELD_LEVEL,
   INVENTORY_TOTAL_SLOTS, FIELD_TOTAL_SLOTS, ORCHARD_TOTAL_SLOTS,
   MAX_MARKET_SLOTS_PER_CATEGORY,
+  removeAnimalProduct, getAnimalProductCount,
 } from "./state.js";
 import { saveGame } from "./systems/save.js";
+import { getCalendarTradeInfo } from "./systems/calendarTrade.js";
 
 let ctx = null;
 let inventoryFilter = "tümü";
@@ -46,6 +50,29 @@ let highlightedRecipes = new Set();
 let onNewGame = null;
 let hoveredMarketBtn = null;
 let quickSellMode = localStorage.getItem("quickSellMode") || "single";
+
+let _dragItemId = null;
+let _hoverTimer = null;
+let _hoverSlotEl = null;
+let _plantedDuringDrag = false;
+
+let _saveDirty = false;
+let _saveTimer = null;
+
+function scheduleSave() {
+  _saveDirty = true;
+  if (!_saveTimer) {
+    _saveTimer = setTimeout(() => {
+      if (_saveDirty) { saveGame(ctx.state); _saveDirty = false; }
+      _saveTimer = null;
+    }, 500);
+  }
+}
+
+function flushSave() {
+  if (_saveDirty) { saveGame(ctx.state); _saveDirty = false; }
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+}
 
 function saveQuickSellMode(mode) {
   quickSellMode = mode;
@@ -56,6 +83,11 @@ export function initUI(state, log, newGameCallback) {
   ctx = { state, log };
   onNewGame = newGameCallback || null;
   wireStaticEvents();
+
+  window.addEventListener("beforeunload", () => flushSave());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushSave();
+  });
 }
 
 function gold() { return ctx.state.player.gold; }
@@ -77,7 +109,7 @@ function reasonText(r) {
     tarif_yok: "Tarif bulunamadı",
     ekilemez: "Buraya ekilemez",
     hazir_degil: "Hasat için hazır değil",
-    zaten_acik: "Zaten açık",
+    zaten_acik: "Bu özellik zaten satın alındı",
     tukendi: "Stok tükendi",
     gecersiz_liste: "Geçersiz ürün",
     yetersiz_urun: "Envanterde yeterli ürün yok",
@@ -87,6 +119,10 @@ function reasonText(r) {
     hava_kaynakli_basarisizlik: "Hava koşulları başarısızlığa neden oldu",
     hava_kaynakli_ticaret_kaybi: "Hava koşulları ticaret kaybına neden oldu",
     envanter_dolu: "Envanter dolu! Slot boşalmasını bekle.",
+    kilitli: "Bu tier henüz açılmadı",
+    bina_yetersiz_seviye: "Bina seviyesi yetersiz",
+    bina_kilitli: "Bu bina henüz satın alınmadı",
+    gecersiz_ozellik: "Geçersiz özellik",
   };
   return map[r] || r;
 }
@@ -183,6 +219,7 @@ export function render() {
   window._ttStore.clear();
   renderHeader();
   renderInventory();
+  syncFeatureTabs();
   const middleTab = ctx.state.ui.activeMiddleTab;
   document.getElementById("middle-content").innerHTML = middleTab === "field" ? fieldGridHTML() : orchardGridHTML();
   renderBuildingTab();
@@ -195,19 +232,276 @@ export function render() {
 
   syncTabButtons();
   checkLabelOverflow();
+  _lastRenderedMiddleTab = middleTab;
+  _lastRenderedRightTab = rightTab;
 }
 
+let _lastRenderedMiddleTab = "";
+let _lastRenderedRightTab = "";
+let _prevMarketSeconds = -1;
+
+/** Feature durumuna göre sekmeleri gizler/gösterir. */
+function syncFeatureTabs() {
+  const features = ctx.state.features || {};
+
+  // Orta panel: Bahçe sekmesi
+  const orchardBtn = document.querySelector('#middle-tabs button[data-tab="orchard"]');
+  if (orchardBtn) {
+    orchardBtn.style.display = features.orchard ? "" : "none";
+    // Bahçe sekmesindeyken bahçe kapalıysa tarla'ya geç
+    if (!features.orchard && ctx.state.ui.activeMiddleTab === "orchard") {
+      ctx.state.ui.activeMiddleTab = "field";
+    }
+  }
+
+  // Orta panel alt: Bina sekmeleri
+  const hiveBtn = document.querySelector('#building-tabs button[data-tab="hive"]');
+  const coopBtn = document.querySelector('#building-tabs button[data-tab="coop"]');
+  const barnBtn = document.querySelector('#building-tabs button[data-tab="barn"]');
+  if (hiveBtn) hiveBtn.style.display = features.hive ? "" : "none";
+  if (coopBtn) coopBtn.style.display = features.coop ? "" : "none";
+  if (barnBtn) barnBtn.style.display = features.barn ? "" : "none";
+
+  // Aktif bina sekmesi gizliyse ilk görünür olana geç
+  if (!features[ctx.state.ui.activeBuildingTab]) {
+    if (features.hive) ctx.state.ui.activeBuildingTab = "hive";
+    else if (features.coop) ctx.state.ui.activeBuildingTab = "coop";
+    else if (features.barn) ctx.state.ui.activeBuildingTab = "barn";
+  }
+
+  // Tüm binalar gizliyken bina panelini de gizle
+  const buildingSection = document.querySelector("#middle-panel .panel-bottom");
+  const anyBuilding = features.hive || features.coop || features.barn;
+  if (buildingSection) {
+    buildingSection.style.display = anyBuilding ? "" : "none";
+  }
+
+  // Sol panel: Hızlı satış
+  const quickSellZone = document.getElementById("quick-sell-zone");
+  const sellTabs = document.getElementById("sell-tabs");
+  if (quickSellZone) quickSellZone.style.display = features.quickSell ? "" : "none";
+  if (sellTabs) sellTabs.style.display = features.quickSell ? "" : "none";
+
+  // Sol panel boyutu: Hızlı satış yokken üst kısım tam alanı kaplasın
+  const inventoryPanel = document.getElementById("inventory-panel");
+  if (inventoryPanel) {
+    inventoryPanel.classList.toggle("no-quick-sell", !features.quickSell);
+  }
+
+  // Orta panel boyutu: Bina yokken üst kısım tam alanı kaplasın
+  const middlePanel = document.getElementById("middle-panel");
+  if (middlePanel) {
+    middlePanel.classList.toggle("no-buildings", !anyBuilding);
+  }
+}
+
+export function tickUpdate() {
+  const s = ctx.state;
+
+  // Header: sadece dinamik değerleri güncelle
+  updateHeaderTick();
+
+  // Envanter: her tick'ta güncelle
+  renderInventory();
+
+  // Feature sekmelerini senkronize et (sekmeleri gizle/göster)
+  syncFeatureTabs();
+
+  // Orta panel slotlarını güncelle (progress bar, ready durumu)
+  const middleTab = s.ui.activeMiddleTab;
+  if (middleTab === "field" || middleTab === "orchard") {
+    updateSlotsTick(middleTab);
+  }
+
+  // Bina sekmesi sadece aktifken güncellenmeli (üretim sayaçları yavaş değişir)
+  renderBuildingTab();
+
+  // Market yenilendiyse sağ paneli yeniden render et
+  const rightTab = s.ui.activeRightTab;
+  if (rightTab === "market") {
+    const cur = s.market.secondsSinceRefresh;
+    if (_prevMarketSeconds > cur) {
+      document.getElementById("right-content").innerHTML = marketHTML();
+      checkLabelOverflow();
+    }
+    _prevMarketSeconds = cur;
+  }
+
+  // Label overflow kontrolü (zaten rAF ile debounce edilmiş)
+  checkLabelOverflow();
+}
+
+function updateHeaderTick() {
+  const s = ctx.state;
+  const hdrEl = document.getElementById("header");
+  if (!hdrEl) return;
+
+  // Kuyruk durumu değiştiyse header'ı tam yeniden render et
+  const currentQueueCount = s.inventory.queue.length;
+  const queueEl = hdrEl.querySelector(".hdr-queue-count");
+  if ((currentQueueCount > 0 && !queueEl) || (currentQueueCount === 0 && queueEl)) {
+    renderHeader();
+    return;
+  }
+
+  // Altın
+  const goldEl = hdrEl.querySelector(".hdr-gold-val");
+  if (goldEl) goldEl.textContent = s.player.gold;
+
+  // Zaman bilgisi (sadece takvim açıksa)
+  const calendarActive = s.features && s.features.calendar;
+  const timeEl = hdrEl.querySelector(".hdr-time-info");
+  if (timeEl && calendarActive) {
+    const season = currentSeason(s.time);
+    const monthName = MONTHS[s.time.month].name;
+    const weather = getWeather(s.weather);
+    const weatherEmojiStr = weatherEmoji(weather);
+    timeEl.textContent = `Yıl ${s.time.year} · ${season.charAt(0).toUpperCase() + season.slice(1)} · ${s.time.day} ${monthName} ${weatherEmojiStr} ${weather.name}`;
+  }
+
+  // Market geri sayımı
+  const marketEl = hdrEl.querySelector(".hdr-market-timer");
+  if (marketEl) {
+    const marketSeconds = Math.max(0, 120 - Math.round(s.market.secondsSinceRefresh));
+    marketEl.textContent = `🏪 Market: ${marketSeconds}s`;
+  }
+
+  // Kuyruk sayacı
+  if (queueEl) {
+    queueEl.textContent = `📦 ${currentQueueCount}`;
+  }
+}
+
+function updateSlotsTick(kind) {
+  const slots = kind === "field" ? ctx.state.field.slots : ctx.state.orchard.slots;
+  const dataset = kind === "field" ? CROPS : TREES;
+  const slotEls = document.querySelectorAll(`.slot[data-kind="${kind}"]`);
+
+  slotEls.forEach((slotEl) => {
+    const index = Number(slotEl.dataset.index);
+    const slot = slots[index];
+    if (!slot || !slot.planted) return;
+
+    const pct = Math.min(100, Math.round((slot.planted.elapsedSeconds / slot.planted.requiredSeconds) * 100));
+    const ready = slot.planted.ready;
+
+    // Progress bar güncelle
+    const progressFill = slotEl.querySelector(".progress-fill");
+    if (progressFill) {
+      progressFill.style.width = `${pct}%`;
+    }
+
+    // Progress bar görünürlüğü (hazır olunca gizle)
+    const progressEl = slotEl.querySelector(".progress");
+    if (progressEl) {
+      progressEl.style.display = ready ? "none" : "";
+    }
+
+    // Ready durumu class güncellemesi
+    if (ready && !slotEl.classList.contains("ready")) {
+      slotEl.classList.add("ready");
+      slotEl.classList.remove("growing");
+      slotEl.dataset.action = "harvest";
+    } else if (!ready && !slotEl.classList.contains("growing")) {
+      slotEl.classList.add("growing");
+      slotEl.classList.remove("ready");
+      slotEl.dataset.action = "";
+    }
+
+    // Tooltip güncelle (anlık süre ve büyüme yüzdesi)
+    const def = dataset.find((d) => d.id === slot.planted.cropId);
+    const cropName = def ? def.name : slot.planted.cropId;
+    const speedPct = Math.round(FIELD_LEVEL_SPEED_BONUS * 100 * slot.level);
+    const remainingSec = Math.max(0, Math.round(slot.planted.requiredSeconds - slot.planted.elapsedSeconds));
+    const remainingMin = Math.floor(remainingSec / 60);
+    const remainSec = remainingSec % 60;
+    const harvestsLeft = slot.planted.harvestsLeft || 0;
+    const maxHarvests = slot.planted.maxHarvests || 0;
+    const harvestInfo = ttRow("🌾", "Kalan Hasat:", `${harvestsLeft}/${maxHarvests}`);
+
+    // Hava durumu bilgisi
+    const weather = getWeather(ctx.state.weather);
+    const weatherName = weather.name;
+    const weatherBonus = weather.growthSpeedMultiplier;
+    const weatherPct = Math.round((weatherBonus - 1) * 100);
+    const weatherInfo = weatherPct !== 0
+      ? ttRow("🌡️", "Hava:", `${weatherName} (${weatherPct > 0 ? '+' : ''}${weatherPct}%)`)
+      : ttRow("🌡️", "Hava:", weatherName);
+
+    // Toplam hız çarpanı
+    const totalMult = (1 + FIELD_LEVEL_SPEED_BONUS * slot.level) * weatherBonus;
+    const totalSpeedPct = Math.round((totalMult - 1) * 100);
+    const totalSpeedInfo = totalSpeedPct !== 0
+      ? ttRow("⚡", "Toplam Hız:", `+${totalSpeedPct}%`)
+      : "";
+
+    let newTooltip;
+    if (ready) {
+      newTooltip = [
+        ttTitle(`${cropName}`),
+        ttRow("✅", "Durum:", "Hasat hazır!", "green"),
+        harvestInfo,
+        ttDivider(),
+        ttRow("⚡", "Hız:", `+%${speedPct}`),
+        weatherInfo,
+        totalSpeedInfo,
+        ttDivider(),
+        ttHint("Tıklayarak hasat et"),
+      ].join("");
+    } else {
+      const growInfo = getCrop(slot.planted.cropId)
+        ? `${getCrop(slot.planted.cropId).harvestCycle === "recurring" ? "Tekrarlı" : "Tek hasat"}`
+        : getTree(slot.planted.cropId) ? "Tekrarlı" : "";
+      newTooltip = [
+        ttTitle(`${cropName}`),
+        ttRow("📊", "Büyüme:", `%${pct}`),
+        ttRow("⏱️", "Kalan:", `${remainingMin}dk ${remainSec}sn`),
+        harvestInfo,
+        ttDivider(),
+        ttRow("⚡", "Hız:", `+%${speedPct}`),
+        weatherInfo,
+        totalSpeedInfo,
+        growInfo ? ttRow("🔄", "", growInfo) : "",
+      ].join("");
+    }
+
+    // Tooltip'i güncelle
+    const tooltipId = slotEl.dataset.tooltip;
+    if (tooltipId && window._ttStore.has(tooltipId)) {
+      window._ttStore.set(tooltipId, newTooltip);
+      // Eğer tooltip şu an visible ise DOM içeriğini de güncelle
+      if (window._currentTooltipTarget === slotEl) {
+        const ttInner = document.querySelector("#game-tooltip .tt-inner");
+        if (ttInner) ttInner.innerHTML = newTooltip;
+      }
+    }
+  });
+}
+
+let _overflowRafId = 0;
+
 function checkLabelOverflow() {
-  document.querySelectorAll(".label, .slot-name").forEach((el) => {
-    const text = el.querySelector(".label-text");
-    if (!text) return;
-    el.classList.remove("is-overflow");
-    if (text.scrollWidth > el.clientWidth + 2) {
-      el.classList.add("is-overflow");
-      const dist = text.scrollWidth - el.clientWidth;
-      const dur = Math.max(3, dist / 30);
-      el.style.setProperty("--scroll-dist", `-${dist + 10}px`);
-      el.style.setProperty("--scroll-dur", `${dur}s`);
+  if (_overflowRafId) cancelAnimationFrame(_overflowRafId);
+  _overflowRafId = requestAnimationFrame(() => {
+    _overflowRafId = 0;
+    const els = document.querySelectorAll(".label, .slot-name");
+    const measurements = [];
+    for (let i = 0; i < els.length; i++) {
+      const el = els[i];
+      const text = el.querySelector(".label-text");
+      if (!text) continue;
+      measurements.push({ el, text, scrollW: text.scrollWidth, clientW: el.clientWidth });
+    }
+    for (let i = 0; i < measurements.length; i++) {
+      const { el, scrollW, clientW } = measurements[i];
+      el.classList.remove("is-overflow");
+      if (scrollW > clientW + 2) {
+        el.classList.add("is-overflow");
+        const dist = scrollW - clientW;
+        const dur = Math.max(3, dist / 30);
+        el.style.setProperty("--scroll-dist", `-${dist + 10}px`);
+        el.style.setProperty("--scroll-dur", `${dur}s`);
+      }
     }
   });
 }
@@ -234,47 +528,47 @@ export function checkHints() {
   const items = s.inventory.items;
 
   if (hint(h, "first_seed") && Object.keys(items).some((id) => id.endsWith("_tohum"))) {
-    ctx.log("💡 Tohum satın aldın! Envanterden tarlaya sürükleerek ekebilirsin.", "info");
+    ctx.log("Tohum satın aldın! Envanterden tarlaya sürükleyerek ekebilirsin.", "info");
   }
 
   if (hint(h, "first_sut") && items.sut) {
-    ctx.log("💡 Bu sütü peynire dönüştürebilirsin! Üretim sekmesine git.", "info");
+    ctx.log("Bu sütü peynire dönüştürebilirsin! Üretim sekmesine git.", "info");
   }
 
   if (hint(h, "first_maya") && items.maya) {
-    ctx.log("💡 Maya ekmek yapımında kullanılır. Buğday da lazım!", "info");
+    ctx.log("Maya ekmek yapımında kullanılır. Buğday da lazım!", "info");
   }
 
   if (hint(h, "first_ekmek") && items.ekmek) {
-    ctx.log("💡 Ekmeği hamburgerde kullanabilirsin! İnek eti gerekli.", "info");
+    ctx.log("Ekmeği hamburgerde kullanabilirsin! İnek eti gerekli.", "info");
   }
 
   if (hint(h, "first_cikolata") && items.cikolata) {
-    ctx.log("💡 Çikolatayı fındık ezmesiyle birleştirerek fındık çikolatası yapabilirsin!", "info");
+    ctx.log("Çikolatayı fındık ezmesiyle birleştirerek fındık çikolatası yapabilirsin!", "info");
   }
 
   const season = currentSeason(s.time);
   if (season === "ilkbahar" && hint(h, "season_ilkbahar")) {
-    ctx.log("🌸 İlkbahar başladı! Yeni ürünler: çilek, ahududu, nohut", "info");
+    ctx.log("İlkbahar başladı! Yeni ürünler: çilek, ahududu, nohut", "info");
   }
   if (season === "yaz" && hint(h, "season_yaz")) {
-    ctx.log("☀️ Yaz başladı! Tropik meyveler ve domates için ideal zaman.", "info");
+    ctx.log("Yaz başladı! Tropik meyveler ve domates için ideal zaman.", "info");
   }
   if (season === "sonbahar" && hint(h, "season_sonbahar")) {
-    ctx.log("🍂 Sonbahar başladı! Nar, incir ve bal kabağı hasadı zamanı.", "info");
+    ctx.log("Sonbahar başladı! Nar, incir ve bal kabağı hasadı zamanı.", "info");
   }
   if (season === "kış" && hint(h, "season_kis")) {
-    ctx.log("❄️ Kış başladı! Narenciye ve serada yetişen ürünler öne çıkıyor.", "info");
+    ctx.log("Kış başladı! Narenciye ve serada yetişen ürünler öne çıkıyor.", "info");
   }
 
   if (s.unlockedTiers.length >= 2 && hint(h, "tier2_open")) {
-    ctx.log("🎉 Tier 2 tarifleri açıldı! Yeni tarifler Üretim sekmesinde.", "info");
+    ctx.log("Tier 2 tarifleri açıldı! Yeni tarifler Üretim sekmesinde.", "info");
   }
   if (s.unlockedTiers.length >= 3 && hint(h, "tier3_open")) {
-    ctx.log("🎉 Tier 3 tarifleri açıldı! Güveç, mantı ve daha fazlası!", "info");
+    ctx.log("Tier 3 tarifleri açıldı! Güveç, mantı ve daha fazlası!", "info");
   }
   if (s.unlockedTiers.length >= 4 && hint(h, "tier4_open")) {
-    ctx.log("🎉 Tier 4 tarifleri açıldı! Şef'in Özel Menüsü ve Tatlı Tabağı!", "info");
+    ctx.log("Tier 4 tarifleri açıldı! Şef'in Özel Menüsü ve Tatlı Tabağı!", "info");
   }
 }
 
@@ -287,13 +581,53 @@ function renderHeader() {
   const seasonEmojiStr = seasonEmoji(season);
   const weatherEmojiStr = weatherEmoji(weather);
   const monthName = MONTHS[ctx.state.time.month].name;
-  const daysInMonth = MONTHS[ctx.state.time.month].days;
+  const calendarActive = ctx.state.features && ctx.state.features.calendar;
+
+  // Takvim ticaret bilgisi
+  const calendarInfo = getCalendarTradeInfo(ctx.state);
+
+  const seasonEffect = {
+    ilkbahar: "Çilek, ahududu, nohut gibi ürünler yetişir.",
+    yaz: "Tropik meyveler ve domates için uygun mevsim.",
+    sonbahar: "Nar, incir, bal kabağı hasat zamanı.",
+    kış: "Narenciye ve serada yetişen ürünler öne çıkar.",
+  };
+  const w = getWeather(ctx.state.weather);
+  const speedPct = Math.round((w.growthSpeedMultiplier - 1) * 100);
+  const speedLabel = speedPct > 0 ? `+%${speedPct}` : speedPct < 0 ? `-%${Math.abs(speedPct)}` : "normal";
+  const speedColor = speedPct > 0 ? "green" : speedPct < 0 ? "red" : "";
+  const weatherLines = [
+    ttRow("", "Büyüme:", speedLabel, speedColor),
+  ];
+  if (w.tradeLossChance > 0) weatherLines.push(ttRow("", "Ticaret riski:", `%${Math.round(w.tradeLossChance * 100)}`, "red"));
+  if (w.mergeFailChance > 0) weatherLines.push(ttRow("", "Birleştirme riski:", `%${Math.round(w.mergeFailChance * 100)}`, "red"));
+  if (w.rarityChance && Object.keys(w.rarityChance).length > 0) {
+    const rarities = Object.entries(w.rarityChance)
+      .map(([r, ch]) => `${r}: %${Math.round(ch * 100)}`)
+      .join(" · ");
+    weatherLines.push(ttRow("", "", rarities, "blue"));
+  }
+
+  // Takvim ticaret bonus bilgisi (sadece takvim açıksa)
+  if (calendarActive) {
+    const buyMult = calendarInfo.buyMultiplierSeed;
+    const sellMult = calendarInfo.sellMultiplier;
+    const buyColor = buyMult < 1 ? "green" : buyMult > 1 ? "red" : "";
+    const sellColor = sellMult > 1 ? "green" : sellMult < 1 ? "red" : "";
+    weatherLines.push(ttDivider());
+    weatherLines.push(ttRow("📅", "Takvim Ticaret:", "", ""));
+    weatherLines.push(ttRow("", "Alış:", `${buyMult < 1 ? "-" : buyMult > 1 ? "+" : ""}%${Math.abs(Math.round((buyMult - 1) * 100))}`, buyColor));
+    weatherLines.push(ttRow("", "Satış:", `${sellMult > 1 ? "+" : sellMult < 1 ? "-" : ""}%${Math.abs(Math.round((sellMult - 1) * 100))}`, sellColor));
+    weatherLines.push(ttRow("", "Mevsim:", `${calendarInfo.seasonName} — ${calendarInfo.seasonEffect}`));
+    weatherLines.push(ttRow("", "Hava:", calendarInfo.weatherEffect));
+  }
+
   const timeTooltip = [
-    ttTitle("⏰ Zaman"),
-    ttRow("📅", "Yıl:", `${ctx.state.time.year}`),
-    ttRow(seasonEmojiStr, "Mevsim:", season),
-    ttRow("📆", "Ay:", `${monthName}`),
-    ttRow("📆", "Gün:", `${ctx.state.time.day}/${daysInMonth}`),
+    ttTitle(`${seasonEmojiStr} ${season.charAt(0).toUpperCase() + season.slice(1)}`),
+    ttRow("", "", seasonEffect[season] || ""),
+    ttDivider(),
+    ttTitle(`${weatherEmojiStr} ${w.name.charAt(0).toUpperCase() + w.name.slice(1)}`),
+    ...weatherLines,
   ].join("");
   const goldTooltip = [
     ttTitle("🪙 Altın"),
@@ -315,15 +649,29 @@ function renderHeader() {
       ttTitle("📦 Bekleyen Ürünler"),
       ttRow("📦", "Sayı:", `${queueCount}`),
       ttDivider(),
+      ...Object.entries(
+        ctx.state.inventory.queue.reduce((acc, q) => {
+          acc[q.itemId] = (acc[q.itemId] || 0) + q.qty;
+          return acc;
+        }, {})
+      ).map(([id, qty]) =>
+        ttRow(itemEmoji(id), "", `${qty} adet ${itemDisplayName(id)}`)
+      ),
+      ttDivider(),
       ttHint("Envanter boşaldıkça otomatik eklenecek"),
     ].join("")
     : ttTitle("📦 Bekleyen Ürünler") + ttHint("Kuyrukta ürün yok");
 
+  // Takvim gizliyken zaman bilgisini gösterme
+  const timeInfoHtml = calendarActive
+    ? `<div class="hdr-item" data-tooltip="${setTooltip(timeTooltip)}"><span class="hdr-time-info">Yıl ${ctx.state.time.year} · ${season.charAt(0).toUpperCase() + season.slice(1)} · ${ctx.state.time.day} ${monthName} ${weatherEmojiStr} ${weather.name}</span></div>`
+    : "";
+
   document.getElementById("header").innerHTML = `
-    <div class="hdr-item" data-tooltip="${setTooltip(goldTooltip)}">🪙 <b>${gold()}</b></div>
-    <div class="hdr-item" data-tooltip="${setTooltip(timeTooltip)}">Yıl ${ctx.state.time.year} · ${season.charAt(0).toUpperCase() + season.slice(1)} · ${ctx.state.time.day} ${monthName} ${weatherEmojiStr} ${weather.name}</div>
-    <div class="hdr-item" data-tooltip="${setTooltip(marketTooltip)}" style="margin-left:auto">🏪 Market: ${marketSeconds}s</div>
-    ${queueCount > 0 ? `<div class="hdr-item hdr-queue" data-tooltip="${setTooltip(queueTooltip)}">📦 ${queueCount}</div>` : ""}
+    <div class="hdr-item" data-tooltip="${setTooltip(goldTooltip)}">🪙 <b class="hdr-gold-val">${gold()}</b></div>
+    ${timeInfoHtml}
+    <div class="hdr-item" data-tooltip="${setTooltip(marketTooltip)}" style="margin-left:auto"><span class="hdr-market-timer">🏪 Market: ${marketSeconds}s</span></div>
+    ${queueCount > 0 ? `<div class="hdr-item hdr-queue" data-tooltip="${setTooltip(queueTooltip)}"><span class="hdr-queue-count">📦 ${queueCount}</span></div>` : ""}
     <div class="hdr-item"><button class="new-game-btn" id="new-game-btn">🔄 Yeni Oyun</button></div>
   `;
 
@@ -343,7 +691,7 @@ function renderInventory() {
   const isActive = inventorySort === "deger";
   filtersEl.innerHTML =
     `<button class="hamburger-btn${isActive ? " active" : ""}" data-action="sortByValue"><span></span><span></span><span></span></button>` +
-    FILTERS.map((f) => `<button data-filter="${f}">${f}</button>`).join("");
+    FILTERS.map((f) => `<button data-filter="${f}">${f.charAt(0).toUpperCase() + f.slice(1)}</button>`).join("");
 
   const list = getInventoryList(ctx.state, { filter: inventoryFilter, sortBy: inventorySort });
   const grid = document.getElementById("inventory-grid");
@@ -381,8 +729,9 @@ function renderInventory() {
   }
   grid.innerHTML = cells.join("");
 
+  // Hızlı satış sadece feature açıkken çalışır
   const quickSellZone = document.getElementById("quick-sell-zone");
-  if (quickSellZone) {
+  if (quickSellZone && ctx.state.features && ctx.state.features.quickSell) {
     quickSellZone.innerHTML = `<div class="quick-sell-content"><small>Sürükle, bırak ve sat</small></div>`;
   }
 
@@ -395,6 +744,56 @@ function abbreviate(name) {
   return name.length > 10 ? name.slice(0, 9) + "…" : name;
 }
 
+function affordClass(cost, maxed) {
+  if (maxed) return "";
+  return gold() < cost ? " insufficient-gold" : "";
+}
+
+function renderUpgradeRow({ emoji, label, current, max, cost, maxed, action }) {
+  const tooltip = maxed
+    ? ttTitle(`${emoji} ${label}`) + ttRow("✅", "", "Maksimum", "green")
+    : ttTitle(`${emoji} ${label}`) + ttRow("📊", "Durum:", `${current}/${max}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${cost}🪙`, "gold") + ttDivider() + ttHint(`${label} kapasitesini +1 artırır`);
+
+  return `
+    <div class="upgrade-row" data-tooltip="${setTooltip(tooltip)}">
+      <div class="upgrade-info">
+        <span class="upgrade-label">${emoji} ${label}</span>
+        <span class="upgrade-status">${current}/${max}</span>
+      </div>
+      <button class="upgrade-btn${affordClass(cost, maxed)}" data-action="${action}" ${maxed ? "disabled" : ""}>
+        ${maxed ? "Max" : `${cost}🪙`}
+      </button>
+    </div>
+  `;
+}
+
+function renderFeatureRow(featureId, cost) {
+  const name = FEATURE_NAMES[featureId] || featureId;
+  const emoji = FEATURE_EMOJIS[featureId] || "🔓";
+  const desc = FEATURE_DESCRIPTIONS[featureId] || "";
+
+  const tooltip = [
+    ttTitle(`${emoji} ${name}`),
+    ttRow("📝", "", desc),
+    ttDivider(),
+    ttRow("🪙", "Maliyet:", `${cost}🪙`, "gold"),
+    ttDivider(),
+    ttHint("Satın almak için tıkla"),
+  ].join("");
+
+  return `
+    <div class="upgrade-row feature-row" data-tooltip="${setTooltip(tooltip)}">
+      <div class="upgrade-info">
+        <span class="upgrade-label">${emoji} ${name}</span>
+        <span class="upgrade-status">${desc}</span>
+      </div>
+      <button class="upgrade-btn${affordClass(cost, false)}" data-action="buyFeature" data-feature="${featureId}">
+        ${cost}🪙
+      </button>
+    </div>
+  `;
+}
+
 // ---------------------------------------------------------------------------
 // GELİŞTİRME PANELİ
 // ---------------------------------------------------------------------------
@@ -402,64 +801,33 @@ function renderUpgrades() {
   const state = ctx.state;
   const fieldUnlocked = state.field.slots.filter((s) => s.unlocked).length;
   const orchardUnlocked = state.orchard.slots.filter((s) => s.unlocked).length;
+  const features = state.features || {};
 
   const sections = [];
 
-  // Slot Geliştirmeleri
-  const invMaxed = state.inventory.maxSlots >= INVENTORY_TOTAL_SLOTS;
-  const fieldMaxed = fieldUnlocked >= FIELD_TOTAL_SLOTS;
-  const orchardMaxed = orchardUnlocked >= ORCHARD_TOTAL_SLOTS;
-  const invCost = inventorySlotCost(state.inventory.maxSlots);
-  const fieldCost = fieldSlotUnlockCost(fieldUnlocked);
-  const orchardCost = orchardSlotUnlockCost(orchardUnlocked);
-
-  function affordClass(cost, maxed) {
-    if (maxed) return "";
-    return gold() < cost ? " insufficient-gold" : "";
+  // Özellikler (Satın Alınmamışlar)
+  const featureRows = [];
+  for (const [featureId, cost] of Object.entries(FEATURE_COSTS)) {
+    if (!features[featureId]) {
+      featureRows.push(renderFeatureRow(featureId, cost));
+    }
+  }
+  if (featureRows.length > 0) {
+    sections.push(`
+      <div class="upgrade-section">
+        <h4>🔓 Özellikler</h4>
+        ${featureRows.join("")}
+      </div>
+    `);
   }
 
-  const invTooltip = invMaxed
-    ? ttTitle("📦 Envanter Slotu") + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle("📦 Envanter Slotu") + ttRow("📊", "Durum:", `${state.inventory.maxSlots}/${INVENTORY_TOTAL_SLOTS}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${invCost}🪙`, "gold") + ttDivider() + ttHint("Envanter kapasitesini +1 artırır");
-
-  const fieldTooltip = fieldMaxed
-    ? ttTitle("🌾 Tarla Slotu") + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle("🌾 Tarla Slotu") + ttRow("📊", "Durum:", `${fieldUnlocked}/${FIELD_TOTAL_SLOTS}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${fieldCost}🪙`, "gold") + ttDivider() + ttHint("Tarla slot kapasitesini +1 artırır");
-
-  const orchardTooltip = orchardMaxed
-    ? ttTitle("🌳 Bahçe Slotu") + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle("🌳 Bahçe Slotu") + ttRow("📊", "Durum:", `${orchardUnlocked}/${ORCHARD_TOTAL_SLOTS}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${orchardCost}🪙`, "gold") + ttDivider() + ttHint("Bahçe slot kapasitesini +1 artırır");
-
+  // Slot Geliştirmeleri
   sections.push(`
     <div class="upgrade-section">
       <h4>📦 Slot Geliştirmeleri</h4>
-      <div class="upgrade-row" data-tooltip="${setTooltip(invTooltip)}">
-        <div class="upgrade-info">
-          <span class="upgrade-label">Envanter Slotu</span>
-          <span class="upgrade-status">${state.inventory.maxSlots}/${INVENTORY_TOTAL_SLOTS}</span>
-        </div>
-        <button class="upgrade-btn${affordClass(invCost, invMaxed)}" data-action="upgradeInventory" ${invMaxed ? "disabled" : ""}>
-          ${invMaxed ? "Max" : `${invCost}🪙`}
-        </button>
-      </div>
-      <div class="upgrade-row" data-tooltip="${setTooltip(fieldTooltip)}">
-        <div class="upgrade-info">
-          <span class="upgrade-label">Tarla Slotu</span>
-          <span class="upgrade-status">${fieldUnlocked}/${FIELD_TOTAL_SLOTS}</span>
-        </div>
-        <button class="upgrade-btn${affordClass(fieldCost, fieldMaxed)}" data-action="upgradeField" ${fieldMaxed ? "disabled" : ""}>
-          ${fieldMaxed ? "Max" : `${fieldCost}🪙`}
-        </button>
-      </div>
-      <div class="upgrade-row" data-tooltip="${setTooltip(orchardTooltip)}">
-        <div class="upgrade-info">
-          <span class="upgrade-label">Bahçe Slotu</span>
-          <span class="upgrade-status">${orchardUnlocked}/${ORCHARD_TOTAL_SLOTS}</span>
-        </div>
-        <button class="upgrade-btn${affordClass(orchardCost, orchardMaxed)}" data-action="upgradeOrchard" ${orchardMaxed ? "disabled" : ""}>
-          ${orchardMaxed ? "Max" : `${orchardCost}🪙`}
-        </button>
-      </div>
+      ${renderUpgradeRow({ emoji: "📦", label: "Envanter Slotu", current: state.inventory.maxSlots, max: INVENTORY_TOTAL_SLOTS, cost: inventorySlotCost(state.inventory.maxSlots), maxed: state.inventory.maxSlots >= INVENTORY_TOTAL_SLOTS, action: "upgradeInventory" })}
+      ${renderUpgradeRow({ emoji: "🌾", label: "Tarla Slotu", current: fieldUnlocked, max: FIELD_TOTAL_SLOTS, cost: fieldSlotUnlockCost(fieldUnlocked), maxed: fieldUnlocked >= FIELD_TOTAL_SLOTS, action: "upgradeField" })}
+      ${features.orchard ? renderUpgradeRow({ emoji: "🌳", label: "Bahçe Slotu", current: orchardUnlocked, max: ORCHARD_TOTAL_SLOTS, cost: orchardSlotUnlockCost(orchardUnlocked), maxed: orchardUnlocked >= ORCHARD_TOTAL_SLOTS, action: "upgradeOrchard" }) : ""}
     </div>
   `);
 
@@ -467,64 +835,29 @@ function renderUpgrades() {
   const seedMaxed = state.market.seedSlots >= MAX_MARKET_SLOTS_PER_CATEGORY;
   const saplingMaxed = state.market.saplingSlots >= MAX_MARKET_SLOTS_PER_CATEGORY;
   const animalMaxed = state.market.animalSlots >= MAX_MARKET_SLOTS_PER_CATEGORY;
-  const seedCost = marketSlotCost("seed", state.market.seedSlots);
-  const saplingCost = marketSlotCost("sapling", state.market.saplingSlots);
-  const animalCost = marketSlotCost("animal", state.market.animalSlots);
-
-  const seedSlotTooltip = seedMaxed
-    ? ttTitle("🌱 Tohum Slotları") + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle("🌱 Tohum Slotları") + ttRow("📊", "Durum:", `${state.market.seedSlots}/${MAX_MARKET_SLOTS_PER_CATEGORY}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${seedCost}🪙`, "gold") + ttDivider() + ttHint("Pazarda tohum slotu +1 artırır");
-
-  const saplingSlotTooltip = saplingMaxed
-    ? ttTitle("🌿 Fidan Slotları") + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle("🌿 Fidan Slotları") + ttRow("📊", "Durum:", `${state.market.saplingSlots}/${MAX_MARKET_SLOTS_PER_CATEGORY}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${saplingCost}🪙`, "gold") + ttDivider() + ttHint("Pazarda fidan slotu +1 artırır");
-
-  const animalSlotTooltip = animalMaxed
-    ? ttTitle("🐄 Hayvan Slotları") + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle("🐄 Hayvan Slotları") + ttRow("📊", "Durum:", `${state.market.animalSlots}/${MAX_MARKET_SLOTS_PER_CATEGORY}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${animalCost}🪙`, "gold") + ttDivider() + ttHint("Pazarda hayvan ürünü slotu +1 artırır");
 
   sections.push(`
     <div class="upgrade-section">
       <h4>🏪 Market Slotları</h4>
-      <div class="upgrade-row" data-tooltip="${setTooltip(seedSlotTooltip)}">
-        <div class="upgrade-info">
-          <span class="upgrade-label">🌱 Tohum Slotları</span>
-          <span class="upgrade-status">${state.market.seedSlots}/${MAX_MARKET_SLOTS_PER_CATEGORY}</span>
-        </div>
-        <button class="upgrade-btn${affordClass(seedCost, seedMaxed)}" data-action="upgradeMarketSeed" ${seedMaxed ? "disabled" : ""}>
-          ${seedMaxed ? "Max" : `${seedCost}🪙`}
-        </button>
-      </div>
-      <div class="upgrade-row" data-tooltip="${setTooltip(saplingSlotTooltip)}">
-        <div class="upgrade-info">
-          <span class="upgrade-label">🌿 Fidan Slotları</span>
-          <span class="upgrade-status">${state.market.saplingSlots}/${MAX_MARKET_SLOTS_PER_CATEGORY}</span>
-        </div>
-        <button class="upgrade-btn${affordClass(saplingCost, saplingMaxed)}" data-action="upgradeMarketSapling" ${saplingMaxed ? "disabled" : ""}>
-          ${saplingMaxed ? "Max" : `${saplingCost}🪙`}
-        </button>
-      </div>
-      <div class="upgrade-row" data-tooltip="${setTooltip(animalSlotTooltip)}">
-        <div class="upgrade-info">
-          <span class="upgrade-label">🐄 Hayvan Slotları</span>
-          <span class="upgrade-status">${state.market.animalSlots}/${MAX_MARKET_SLOTS_PER_CATEGORY}</span>
-        </div>
-        <button class="upgrade-btn${affordClass(animalCost, animalMaxed)}" data-action="upgradeMarketAnimal" ${animalMaxed ? "disabled" : ""}>
-          ${animalMaxed ? "Max" : `${animalCost}🪙`}
-        </button>
-      </div>
+      ${renderUpgradeRow({ emoji: "🌱", label: "Tohum Slotları", current: state.market.seedSlots, max: MAX_MARKET_SLOTS_PER_CATEGORY, cost: marketSlotCost("seed", state.market.seedSlots), maxed: seedMaxed, action: "upgradeMarketSeed" })}
+      ${features.orchard ? renderUpgradeRow({ emoji: "🌿", label: "Fidan Slotları", current: state.market.saplingSlots, max: MAX_MARKET_SLOTS_PER_CATEGORY, cost: marketSlotCost("sapling", state.market.saplingSlots), maxed: saplingMaxed, action: "upgradeMarketSapling" }) : ""}
+      ${renderUpgradeRow({ emoji: "🐄", label: "Hayvan Slotları", current: state.market.animalSlots, max: MAX_MARKET_SLOTS_PER_CATEGORY, cost: marketSlotCost("animal", state.market.animalSlots), maxed: animalMaxed, action: "upgradeMarketAnimal" })}
     </div>
   `);
 
-  // Binalar
-  sections.push(`
-    <div class="upgrade-section">
-      <h4>🏗️ Binalar</h4>
-      ${renderBuildingUpgradeRow("hive")}
-      ${renderBuildingUpgradeRow("coop")}
-      ${renderBuildingUpgradeRow("barn")}
-    </div>
-  `);
+  // Binalar (sadece satın alınmış olanlar)
+  const buildingRows = [];
+  if (features.hive) buildingRows.push(renderBuildingUpgradeRow("hive"));
+  if (features.coop) buildingRows.push(renderBuildingUpgradeRow("coop"));
+  if (features.barn) buildingRows.push(renderBuildingUpgradeRow("barn"));
+  if (buildingRows.length > 0) {
+    sections.push(`
+      <div class="upgrade-section">
+        <h4>🏗️ Binalar</h4>
+        ${buildingRows.join("")}
+      </div>
+    `);
+  }
 
   const rightEl = document.getElementById("right-content");
   rightEl.innerHTML = `<div class="upgrades-grid">${sections.join("")}</div>`;
@@ -535,7 +868,7 @@ function renderBuildingUpgradeRow(type) {
   const building = ctx.state.buildings[type];
   const capacity = capacityForLevel(type, building.level);
   const maxed = building.level >= MAX_BUILDING_LEVEL;
-  const upgradeCostVal = buildingUpgradeCost(building.level);
+  const upgradeCostVal = buildingUpgradeCost(building.level, type);
 
   const tooltip = [
     ttTitle(`${def.name}`),
@@ -602,19 +935,17 @@ function slotHTML(slot, index, kind) {
 
   if (!slot.planted) {
     const speedPct = Math.round(FIELD_LEVEL_SPEED_BONUS * 100 * slot.level);
-    const seedSavePct = Math.round(SEED_SAVE_CHANCE_PER_LEVEL * 100 * slot.seedSaveLevel);
     const tooltip = [
       ttTitle(`${kindName} Slot #${index + 1}`),
       ttRow("➕", "Durum:", "Boş"),
       ttDivider(),
-      ttRow("⚡", "Hız:", `${slot.level}/${MAX_FIELD_LEVEL} (+${speedPct}%)`),
-      ttRow("🛡️", "Koruma:", `${slot.seedSaveLevel}/${MAX_SEED_SAVE_LEVEL} (+${seedSavePct}%)`),
+      ttRow("⚡", "Hız:", `+%${speedPct}`),
       ttDivider(),
-      ttHint("Tohum veya fidan sürükle"),
+      ttHint(kind === "field" ? "Tohum sürükle" : "Fidan sürükle"),
     ].join("");
     return `<div class="slot empty-plantable" data-kind="${kind}" data-index="${index}" data-tooltip="${setTooltip(tooltip)}">
-      <div class="slot-inner">＋</div>
       ${upgradeButtonsHTML(slot, index, kind)}
+      <div class="slot-inner">＋</div>
     </div>`;
   }
 
@@ -623,7 +954,6 @@ function slotHTML(slot, index, kind) {
   const ready = slot.planted.ready;
   const cropName = def ? def.name : slot.planted.cropId;
   const speedPct = Math.round(FIELD_LEVEL_SPEED_BONUS * 100 * slot.level);
-  const seedSavePct = Math.round(SEED_SAVE_CHANCE_PER_LEVEL * 100 * slot.seedSaveLevel);
   const remainingSec = Math.max(0, Math.round(slot.planted.requiredSeconds - slot.planted.elapsedSeconds));
   const remainingMin = Math.floor(remainingSec / 60);
   const remainSec = remainingSec % 60;
@@ -633,6 +963,22 @@ function slotHTML(slot, index, kind) {
   const maxHarvests = slot.planted.maxHarvests || 0;
   const harvestInfo = ttRow("🌾", "Kalan Hasat:", `${harvestsLeft}/${maxHarvests}`);
 
+  // Hava durumu bilgisi
+  const weather = getWeather(ctx.state.weather);
+  const weatherName = weather.name;
+  const weatherBonus = weather.growthSpeedMultiplier;
+  const weatherPct = Math.round((weatherBonus - 1) * 100);
+  const weatherInfo = weatherPct !== 0
+    ? ttRow("🌡️", "Hava:", `${weatherName} (${weatherPct > 0 ? '+' : ''}${weatherPct}%)`)
+    : ttRow("🌡️", "Hava:", weatherName);
+
+  // Toplam hız çarpanı
+  const totalMult = (1 + FIELD_LEVEL_SPEED_BONUS * slot.level) * weatherBonus;
+  const totalSpeedPct = Math.round((totalMult - 1) * 100);
+  const totalSpeedInfo = totalSpeedPct !== 0
+    ? ttRow("⚡", "Toplam Hız:", `+${totalSpeedPct}%`)
+    : "";
+
   let tooltip;
   if (ready) {
     tooltip = [
@@ -640,8 +986,9 @@ function slotHTML(slot, index, kind) {
       ttRow("✅", "Durum:", "Hasat hazır!", "green"),
       harvestInfo,
       ttDivider(),
-      ttRow("⚡", "Hız:", `Lv${slot.level}/${MAX_FIELD_LEVEL}`),
-      ttRow("🛡️", "Koruma:", `Lv${slot.seedSaveLevel}/${MAX_SEED_SAVE_LEVEL}`),
+      ttRow("⚡", "Hız:", `+%${speedPct}`),
+      weatherInfo,
+      totalSpeedInfo,
       ttDivider(),
       ttHint("Tıklayarak hasat et"),
     ].join("");
@@ -656,38 +1003,31 @@ function slotHTML(slot, index, kind) {
       harvestInfo,
       ttDivider(),
       ttRow("⚡", "Hız:", `+%${speedPct}`),
-      ttRow("🛡️", "Koruma:", `+%${seedSavePct}`),
+      weatherInfo,
+      totalSpeedInfo,
       growInfo ? ttRow("🔄", "", growInfo) : "",
     ].join("");
   }
 
   return `<div class="slot ${ready ? "ready" : "growing"}" data-kind="${kind}" data-index="${index}" data-action="${ready ? "harvest" : ""}" data-tooltip="${setTooltip(tooltip)}">
-    <div class="slot-inner">${baseEmoji}</div>
-    <div class="slot-name"><span class="label-text">${def ? abbreviate(def.name) : ""}</span></div>
-    ${ready ? "" : `<div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>`}
     ${upgradeButtonsHTML(slot, index, kind)}
+    <div class="slot-inner">${baseEmoji}</div>
+    ${ready ? "" : `<div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>`}
     <button class="remove-btn" data-kind="${kind}" data-index="${index}" data-action="removePlant" title="Sök">🗑️</button>
   </div>`;
 }
 
 function upgradeButtonsHTML(slot, index, kind) {
   const lvlMaxed = slot.level >= MAX_FIELD_LEVEL;
-  const seedMaxed = slot.seedSaveLevel >= MAX_SEED_SAVE_LEVEL;
-  const nextSpeedPct = Math.round(FIELD_LEVEL_SPEED_BONUS * 100 * (slot.level + 1));
-  const nextSeedPct = Math.round(SEED_SAVE_CHANCE_PER_LEVEL * 100 * (slot.seedSaveLevel + 1));
+  const speedPct = Math.round(FIELD_LEVEL_SPEED_BONUS * 100 * slot.level);
   const speedCost = kind === "field" ? fieldUpgradeCost(slot.level) : orchardUpgradeCost(slot.level);
-  const seedCost = seedSaveUpgradeCost(slot.seedSaveLevel);
 
   const lvlTooltip = lvlMaxed
-    ? ttTitle("⚡ Hız") + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle("⚡ Hız Geliştir") + ttRow("➡️", "Sonraki:", `+%${nextSpeedPct}`, "green") + ttDivider() + ttRow("🪙", "Maliyet:", `${speedCost}🪙`, "gold");
-  const seedTooltip = seedMaxed
-    ? ttTitle("🛡️ Koruma") + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle("🛡️ Koruma Geliştir") + ttRow("➡️", "Sonraki:", `+%${nextSeedPct}`, "green") + ttDivider() + ttRow("🪙", "Maliyet:", `${seedCost}🪙`, "gold");
+    ? ttTitle("HIZ GELİŞTİR") + ttRow("⚡", "Büyüme Hızı:", `%${speedPct}`, "green") + ttDivider() + ttRow("✅", "", "Maksimum", "green")
+    : ttTitle("HIZ GELİŞTİR") + ttRow("⚡", "Büyüme Hızı:", `%${speedPct}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${speedCost} (GOLD)`, "gold");
 
   return `<div class="slot-upgrades">
-    <button class="mini-btn${gold() < speedCost && !lvlMaxed ? " insufficient-gold" : ""}" data-kind="${kind}" data-index="${index}" data-action="upgradeLevel" ${lvlMaxed ? "disabled" : ""} data-tooltip="${setTooltip(lvlTooltip)}">⬆${slot.level}</button>
-    <button class="mini-btn${gold() < seedCost && !seedMaxed ? " insufficient-gold" : ""}" data-kind="${kind}" data-index="${index}" data-action="upgradeSeed" ${seedMaxed ? "disabled" : ""} data-tooltip="${setTooltip(seedTooltip)}">🛡️${slot.seedSaveLevel}</button>
+    <button class="mini-btn${gold() < speedCost && !lvlMaxed ? " insufficient-gold" : ""}" data-kind="${kind}" data-index="${index}" data-action="upgradeLevel" ${lvlMaxed ? "disabled" : ""} data-tooltip="${setTooltip(lvlTooltip)}"><svg class="upgrade-icon" viewBox="0 0 12 12" width="18" height="18"><path d="M6 2 L10 7 L8 7 L8 10 L4 10 L4 7 L2 7 Z" fill="currentColor"/></svg>${slot.level}</button>
   </div>`;
 }
 
@@ -705,25 +1045,52 @@ function renderBuildingTab() {
   const def = BUILDING_TYPES[type];
   const building = ctx.state.buildings[type];
   const capacity = capacityForLevel(type, building.level);
+  const dailyOutput = building.population > 0 ? Math.floor(building.population / def.baseProductionDays) || 1 : 0;
 
   const panelTooltip = [
     ttTitle(`${def.name}`),
     ttRow("🐾", "Hayvan:", `${def.animalName}`),
     ttRow("📊", "Popülasyon:", `${building.population}/${capacity}`),
-    ttRow("⏱️", "Üretim:", `her ${def.baseProductionDays} günde bir`),
+    ttRow("⏱️", "Üretim:", `${def.baseProductionDays} günde ${building.population} ${itemDisplayName(def.productId)}`),
     ttDivider(),
     ttRow("📦", "Ürün:", itemDisplayName(def.productId)),
     def.secondaryProductId ? ttRow("✨", "Nadiren:", itemDisplayName(def.secondaryProductId)) : "",
     def.fieldBonusCropIds ? ttDivider() + ttRow("🌾", "Bonus:", def.fieldBonusCropIds.map((id) => itemDisplayName(id)).join(", ")) : "",
     ttDivider(),
-    ttHint("Hayvan al ve bina geliştirme: Geliştirme sekmesinden"),
+    ttHint("Ürünleri sürükle → sat zone'a bırak"),
   ].join("");
+
+  const storedProducts = [];
+  for (const [productId, qty] of Object.entries(building.stored)) {
+    if (qty > 0) {
+      const name = itemDisplayName(productId);
+      const price = itemSellPrice(productId);
+      const storedTooltip = [
+        ttTitle(`${itemEmoji(productId)} ${name}`),
+        ttRow("📦", "Miktar:", `${qty}`),
+        ttRow("💰", "Satış:", `${price}🪙`, "gold"),
+        ttDivider(),
+        ttHint("Sürükle, bırak ve sat"),
+      ].join("");
+      storedProducts.push(
+        `<div class="building-product-cell" draggable="true" data-product-id="${productId}" data-source="building" data-tooltip="${setTooltip(storedTooltip)}">
+          <span class="building-product-emoji">${itemEmoji(productId)}</span>
+          <span class="building-product-qty">${qty}</span>
+        </div>`
+      );
+    }
+  }
 
   document.getElementById("building-content").innerHTML = `
     <div class="building-panel" data-tooltip="${setTooltip(panelTooltip)}">
-      <h3>${def.name} — Seviye ${building.level}</h3>
-      <p>${def.animalName}: ${building.population} / ${capacity}</p>
-      <p>Üretim: ${itemDisplayName(def.productId)}${def.secondaryProductId ? ` (+ nadiren ${itemDisplayName(def.secondaryProductId)})` : ""}</p>
+      <div class="building-panel-info">
+        <h3>Seviye ${building.level}</h3>
+        <p>${def.animalName}: ${building.population} / ${capacity}</p>
+        <p>${building.population > 0 ? `${def.baseProductionDays} günde ${building.population} ${itemDisplayName(def.productId)}` : "Hayvan yok"}</p>
+      </div>
+      <div class="building-panel-products">
+        ${storedProducts.length > 0 ? storedProducts.join("") : '<span class="building-product-empty">Henüz ürün yok</span>'}
+      </div>
     </div>
   `;
 }
@@ -765,10 +1132,12 @@ function marketHTML() {
         capacityFull = building.population >= cap;
       }
 
+      const calendarActive = ctx.state.features && ctx.state.features.calendar;
+
       // Tüm kategoriler için fiyat farkı renkli gösterimi
       let priceTag = "";
       let diffTag = "";
-      if (listing.basePrice > 0) {
+      if (calendarActive && listing.basePrice > 0) {
         const diffPct = Math.round(((unitPrice - listing.basePrice) / listing.basePrice) * 100);
         priceTag = `<span class="mr-price-tag" style="color:var(--text-secondary)">${unitPrice}🪙</span>`;
         if (diffPct === -100) {
@@ -782,13 +1151,13 @@ function marketHTML() {
         } else {
           diffTag = `<span class="mr-price-tag" style="color:#e74c3c">%${diffPct} Pahalı</span>`;
         }
+      } else if (listing.basePrice > 0) {
+        priceTag = `<span class="mr-price-tag" style="color:var(--text-secondary)">${unitPrice}🪙</span>`;
       } else {
         priceTag = `<span class="mr-price-tag" style="color:#e6c520">0🪙</span>`;
-        diffTag = `<span class="mr-price-tag" style="color:#ffffff">Bedava</span>`;
       }
 
       const diff = unitPrice - listing.basePrice;
-      const diffStr = diff >= 0 ? `+${diff}` : `${diff}`;
 
       const tooltip = soldOut
         ? [
@@ -802,9 +1171,9 @@ function marketHTML() {
           ttRow("", "Tür:", typeLabel),
           cropDetail ? ttRow("📅", "", cropDetail) : "",
           ttDivider(),
-          ttRow("📊", "Taban:", `${listing.basePrice}🪙`, "gold"),
           ttRow("💰", "Fiyat:", `${unitPrice}🪙`, "gold"),
-          diff < 0 ? ttRow("📈", "Kar:", `+${Math.abs(diff)}🪙`, "green") : diff > 0 ? ttRow("📉", "Zarar:", `-${diff}🪙`, "red") : ttRow("", "", "Fiyat aynı"),
+          calendarActive ? ttRow("📊", "Taban:", `${listing.basePrice}🪙`, "gold") : "",
+          calendarActive ? (diff < 0 ? ttRow("📈", "Kar:", `+${Math.abs(diff)}🪙`, "green") : diff > 0 ? ttRow("📉", "Zarar:", `-${diff}🪙`, "red") : ttRow("", "", "Fiyat aynı")) : "",
           capacityFull ? ttDivider() + ttHint("⚠️ Kapasite dolu!") : "",
         ].join("");
 
@@ -867,7 +1236,7 @@ function marketHTML() {
 
   return `
     <div class="market-list">${rows || "<p>Yükleniyor…</p>"}</div>
-    <div class="market-info">Toplu alımda (%${discountPct} indirim): Tümünü Al butonu ile kalan stokun tamamını indirimli alın.</div>
+    <div class="market-info">Toplu alımda %${discountPct} indirim Uygulanır..</div>
   `;
 }
 
@@ -1054,7 +1423,19 @@ function wireStaticEvents() {
   document.getElementById("inventory-grid").addEventListener("dragstart", (e) => {
     const cell = e.target.closest(".cell.item");
     if (!cell) return;
+    _dragItemId = cell.dataset.itemId;
+    _plantedDuringDrag = false;
     e.dataTransfer.setData("text/plain", cell.dataset.itemId);
+    e.dataTransfer.setData("application/x-source", "inventory");
+  });
+
+  document.getElementById("building-content").addEventListener("dragstart", (e) => {
+    const cell = e.target.closest(".building-product-cell");
+    if (!cell) return;
+    _dragItemId = cell.dataset.productId;
+    _plantedDuringDrag = false;
+    e.dataTransfer.setData("text/plain", cell.dataset.productId);
+    e.dataTransfer.setData("application/x-source", "building");
   });
 
   const middleContent = document.getElementById("middle-content");
@@ -1065,15 +1446,47 @@ function wireStaticEvents() {
       e.preventDefault();
       slot.classList.add("drag-over");
     }
+    if (!_dragItemId) return;
+    if (!slot) return;
+    const kind = slot.dataset.kind;
+    const valid = (kind === "field" && _dragItemId.endsWith("_tohum")) ||
+                  (kind === "orchard" && _dragItemId.endsWith("_fidan"));
+    if (!valid) return;
+    if (slot === _hoverSlotEl && _hoverTimer) return;
+    clearTimeout(_hoverTimer);
+    _hoverTimer = null;
+    _hoverSlotEl = slot;
+    _hoverTimer = setTimeout(() => {
+      _hoverTimer = null;
+      _hoverSlotEl = null;
+      if (plantOnSlot(slot, _dragItemId)) {
+        _plantedDuringDrag = true;
+        scheduleSave();
+        render();
+      }
+    }, 200);
   });
   middleContent.addEventListener("dragleave", (e) => {
     const slot = e.target.closest(".slot");
     if (slot) slot.classList.remove("drag-over");
+    if (slot && slot === _hoverSlotEl) {
+      clearTimeout(_hoverTimer);
+      _hoverTimer = null;
+      _hoverSlotEl = null;
+    }
   });
   middleContent.addEventListener("drop", (e) => {
     const slot = e.target.closest(".slot");
     if (slot) slot.classList.remove("drag-over");
     handlePlotDrop(e);
+  });
+
+  document.addEventListener("dragend", () => {
+    _dragItemId = null;
+    _plantedDuringDrag = false;
+    clearTimeout(_hoverTimer);
+    _hoverTimer = null;
+    _hoverSlotEl = null;
   });
 
   document.getElementById("right-panel").addEventListener("click", (e) => handleRightPanelAction(e));
@@ -1104,7 +1517,7 @@ function wireStaticEvents() {
   });
 
   const quickSellZone = document.getElementById("quick-sell-zone");
-  if (quickSellZone) {
+  if (quickSellZone && ctx.state.features && ctx.state.features.quickSell) {
     quickSellZone.addEventListener("dragover", (e) => {
       e.preventDefault();
       quickSellZone.classList.add("drag-over");
@@ -1117,20 +1530,34 @@ function wireStaticEvents() {
       quickSellZone.classList.remove("drag-over");
       const itemId = e.dataTransfer.getData("text/plain");
       if (!itemId) return;
-      const itemEntry = ctx.state.inventory.items[itemId];
-      if (!itemEntry) return;
-      const itemMeta = itemEntry.meta || {};
-      const fullQty = itemEntry.quantity;
-      const qty = quickSellMode === "bulk" ? fullQty : 1;
-      const price = itemSellPrice(itemId, itemMeta);
-      const result = sellItem(ctx.state, itemId, qty, price, addGold, itemMeta);
-      if (result.success) {
+      const source = e.dataTransfer.getData("application/x-source") || "inventory";
+
+      if (source === "building") {
+        const available = getAnimalProductCount(ctx.state, itemId);
+        if (available <= 0) return;
+        const qty = quickSellMode === "bulk" ? available : 1;
+        const price = itemSellPrice(itemId);
+        removeAnimalProduct(ctx.state, itemId, qty);
+        const total = price * qty;
+        addGold(total);
         registerProgress(ctx.state, "sell", itemId, qty);
-        ctx.log(`${itemEmoji(itemId)} ${qty} adet ${itemDisplayName(itemId)} satıldı, +${result.total}🪙`, "trade");
+        ctx.log(`${itemEmoji(itemId)} ${qty} adet ${itemDisplayName(itemId)} satıldı, +${total}🪙`, "trade");
       } else {
-        ctx.log(`Satış başarısız: ${reasonText(result.reason)}`, "error");
+        const itemEntry = ctx.state.inventory.items[itemId];
+        if (!itemEntry) return;
+        const itemMeta = itemEntry.meta || {};
+        const fullQty = itemEntry.quantity;
+        const qty = quickSellMode === "bulk" ? fullQty : 1;
+        const price = itemSellPrice(itemId, itemMeta);
+        const result = sellItem(ctx.state, itemId, qty, price, addGold, itemMeta);
+        if (result.success) {
+          registerProgress(ctx.state, "sell", itemId, qty);
+          ctx.log(`${itemEmoji(itemId)} ${qty} adet ${itemDisplayName(itemId)} satıldı, +${result.total}🪙`, "trade");
+        } else {
+          ctx.log(`Satış başarısız: ${reasonText(result.reason)}`, "error");
+        }
       }
-      saveGame(ctx.state);
+      scheduleSave();
       render();
     });
   }
@@ -1148,47 +1575,52 @@ function handlePlotClick(e) {
     if (result.success) {
       const cropId = result.cropId || result.treeId;
       registerProgress(ctx.state, "sell", cropId, 1);
-      ctx.log(`Hasat: ${itemEmoji(cropId)} ${itemDisplayName(cropId)} ${result.rarity !== "normal" ? `(${result.rarity}!)` : ""}`, "success");
+      ctx.log(`Hasat: ${itemEmoji(cropId)} ${itemDisplayName(cropId)}${result.rarity !== "normal" ? ` (${result.rarity}!)` : ""}`, "success");
     }
   } else if (action === "unlock") {
     const unlockedCount = unlockedCountFn(kind);
     const cost = kind === "field" ? fieldSlotUnlockCost(unlockedCount) : orchardSlotUnlockCost(unlockedCount);
     const result = unlockSlot(ctx.state, index, cost, gold, deductGold);
-    ctx.log(result.success ? `Slot kilidi açıldı 🔓 ${cost}🪙` : `Kilidi açılamadı: ${reasonText(result.reason)}`, result.success ? "build" : "error");
+    ctx.log(result.success ? `Slot kilidi açıldı, ${cost}🪙` : `Kilidi açılamadı: ${reasonText(result.reason)}`, result.success ? "build" : "error");
   } else if (action === "upgradeLevel") {
     const result = kind === "field" ? upgradeFieldSlot(ctx.state, index, deductGold, gold()) : upgradeOrchardSlot(ctx.state, index, deductGold, gold());
-    ctx.log(result.success ? `Hız geliştirildi → Lv${result.newLevel} ⚡` : `Geliştirme başarısız: ${reasonText(result.reason)}`, result.success ? "build" : "error");
-  } else if (action === "upgradeSeed") {
-    const result = kind === "field" ? upgradeFieldSeedSave(ctx.state, index, deductGold, gold()) : upgradeOrchardSeedSave(ctx.state, index, deductGold, gold());
-    ctx.log(result.success ? `Tohum koruma geliştirildi → Lv${result.newLevel} 🛡️` : `Geliştirme başarısız: ${reasonText(result.reason)}`, result.success ? "build" : "error");
+    ctx.log(result.success ? `Hız geliştirildi → Lv${result.newLevel}` : `Geliştirme başarısız: ${reasonText(result.reason)}`, result.success ? "build" : "error");
   } else if (action === "removePlant") {
     const result = kind === "field" ? removePlant(ctx.state, index) : removePlantOrchard(ctx.state, index);
-    ctx.log(result.success ? `Bitki söküldü 🗑️` : `Sökülemedi: ${reasonText(result.reason)}`, result.success ? "info" : "error");
+    ctx.log(result.success ? "Bitki söküldü" : `Sökülemedi: ${reasonText(result.reason)}`, result.success ? "info" : "error");
   }
-  saveGame(ctx.state);
+  scheduleSave();
   render();
 }
 
-function handlePlotDrop(e) {
-  const slotEl = e.target.closest(".slot");
-  if (!slotEl) return;
-  e.preventDefault();
-  const itemId = e.dataTransfer.getData("text/plain");
+function plantOnSlot(slotEl, itemId) {
   const kind = slotEl.dataset.kind;
   const index = Number(slotEl.dataset.index);
 
   if (kind === "field" && itemId.endsWith("_tohum")) {
     const cropId = itemId.replace(/_tohum$/, "");
     const result = plantSeed(ctx.state, index, cropId);
-    ctx.log(result.success ? `Ekildi: ${itemEmoji(cropId)} ${itemDisplayName(cropId)}` : `Ekilemedi: ${reasonText(result.reason)}`, result.success ? "success" : "error");
+    const mergeKey = result.success ? `plant-${cropId}` : null;
+    ctx.log(result.success ? `Ekildi: ${itemEmoji(cropId)} ${itemDisplayName(cropId)} 1 adet` : `Ekilemedi: ${reasonText(result.reason)}`, result.success ? "success" : "error", mergeKey);
+    return result.success;
   } else if (kind === "orchard" && itemId.endsWith("_fidan")) {
     const treeId = itemId.replace(/_fidan$/, "");
     const result = plantTree(ctx.state, index, treeId);
-    ctx.log(result.success ? `Dikildi: ${itemEmoji(treeId)} ${itemDisplayName(treeId)}` : `Dikilemedi: ${reasonText(result.reason)}`, result.success ? "success" : "error");
-  } else {
-    ctx.log("Bu eşya buraya ekilemez.", "error");
+    const mergeKey = result.success ? `plant-${treeId}` : null;
+    ctx.log(result.success ? `Dikildi: ${itemEmoji(treeId)} ${itemDisplayName(treeId)} 1 adet` : `Dikilemedi: ${reasonText(result.reason)}`, result.success ? "success" : "error", mergeKey);
+    return result.success;
   }
-  saveGame(ctx.state);
+  return false;
+}
+
+function handlePlotDrop(e) {
+  if (_plantedDuringDrag) return;
+  const slotEl = e.target.closest(".slot");
+  if (!slotEl) return;
+  e.preventDefault();
+  const itemId = e.dataTransfer.getData("text/plain");
+  plantOnSlot(slotEl, itemId);
+  scheduleSave();
   render();
 }
 
@@ -1205,7 +1637,7 @@ function handleRightPanelAction(e) {
     if (result.success) {
       const icon = isAnimal ? listing.emoji : itemEmoji(listing.seedId);
       const label = isAnimal ? listing.label : itemDisplayName(listing.seedId);
-      ctx.log(`${icon} Satın alındı: ${label} x1, ${result.cost}🪙`, "trade");
+      ctx.log(`${icon} Satın alındı: ${label} 1 adet, ${result.cost}🪙`, "trade");
     } else {
       ctx.log(`Alınamadı: ${reasonText(result.reason)}`, "error");
     }
@@ -1217,7 +1649,7 @@ function handleRightPanelAction(e) {
     if (result.success) {
       const icon = isAnimal ? listing.emoji : itemEmoji(listing.seedId);
       const label = isAnimal ? listing.label : itemDisplayName(listing.seedId);
-      ctx.log(`${icon} Toplu alım: ${label} x${result.qty}, ${result.cost}🪙 (-${getBulkDiscountPercent()}%)`, "trade");
+      ctx.log(`${icon} Toplu alım: ${label} ${result.qty} adet, ${result.cost}🪙 (-${getBulkDiscountPercent()}%)`, "trade");
     } else {
       ctx.log(`Alınamadı: ${reasonText(result.reason)}`, "error");
     }
@@ -1227,9 +1659,9 @@ function handleRightPanelAction(e) {
     const result = craftRecipe(ctx.state, recipeId, times);
     if (result.success) {
       registerProgress(ctx.state, "produce", result.outputId, result.outputQty);
-      ctx.log(`${itemEmoji(result.outputId)} Üretildi: ${itemDisplayName(result.outputId)} x${result.outputQty}${result.firstCraft ? " (tarif öğrenildi ⭐)" : ""}`, "trade");
+      ctx.log(`${itemEmoji(result.outputId)} Üretildi: ${itemDisplayName(result.outputId)} ${result.outputQty} adet${result.firstCraft ? " (tarif öğrenildi)" : ""}`, "trade");
       if (result.tierUnlocked) {
-        ctx.log(`🎉 Tier ${result.unlockedTier} tarifleri açıldı! Yeni tarifler Üretim sekmesinde`, "success");
+        ctx.log(`Tier ${result.unlockedTier} tarifleri açıldı! Yeni tarifler Üretim sekmesinde`, "success");
       }
     } else {
       ctx.log(`Üretilemedi: ${reasonText(result.reason)}`, "error");
@@ -1238,14 +1670,14 @@ function handleRightPanelAction(e) {
     const questId = btn.dataset.quest;
     const result = claimQuest(ctx.state, questId, addGold);
     if (result.success) {
-      ctx.log(`🎯 Görev tamamlandı! +${result.reward.gold}🪙`, "success");
+      ctx.log(`Görev tamamlandı! +${result.reward.gold}🪙`, "success");
     } else {
       ctx.log(`Görev alınamadı: ${reasonText(result.reason)}`, "error");
     }
   } else {
     handleUpgradeAction(e);
   }
-  saveGame(ctx.state);
+  scheduleSave();
   render();
 }
 
@@ -1258,38 +1690,54 @@ function handleUpgradeAction(e) {
   switch (action) {
     case "upgradeInventory":
       result = upgradeInventorySlots(ctx.state, deductGold, gold());
-      if (result.success) ctx.log(`Envanter slotu artırıldı → ${result.newMax} 📦`, "build");
+      if (result.success) ctx.log(`Envanter slotu artırıldı → ${result.newMax}`, "build");
       else ctx.log(`Başarısız: ${reasonText(result.reason)}`, "error");
       break;
     case "upgradeField":
       result = upgradeFieldSlots(ctx.state, deductGold, gold());
-      if (result.success) ctx.log(`Tarla slotu artırıldı → ${result.newMax} 🌾`, "build");
+      if (result.success) ctx.log(`Tarla slotu artırıldı → ${result.newMax}`, "build");
       else ctx.log(`Başarısız: ${reasonText(result.reason)}`, "error");
       break;
     case "upgradeOrchard":
       result = upgradeOrchardSlots(ctx.state, deductGold, gold());
-      if (result.success) ctx.log(`Bahçe slotu artırıldı → ${result.newMax} 🌳`, "build");
+      if (result.success) ctx.log(`Bahçe slotu artırıldı → ${result.newMax}`, "build");
       else ctx.log(`Başarısız: ${reasonText(result.reason)}`, "error");
       break;
     case "upgradeMarketSeed":
       result = upgradeMarketSlots(ctx.state, "seed", deductGold, gold());
-      if (result.success) ctx.log(`Tohum slotu artırıldı → ${result.newMax} 🌱`, "build");
+      if (result.success) ctx.log(`Tohum slotu artırıldı → ${result.newMax}`, "build");
       else ctx.log(`Başarısız: ${reasonText(result.reason)}`, "error");
       break;
     case "upgradeMarketSapling":
       result = upgradeMarketSlots(ctx.state, "sapling", deductGold, gold());
-      if (result.success) ctx.log(`Fidan slotu artırıldı → ${result.newMax} 🌿`, "build");
+      if (result.success) ctx.log(`Fidan slotu artırıldı → ${result.newMax}`, "build");
       else ctx.log(`Başarısız: ${reasonText(result.reason)}`, "error");
       break;
     case "upgradeMarketAnimal":
       result = upgradeMarketSlots(ctx.state, "animal", deductGold, gold());
-      if (result.success) ctx.log(`Hayvan slotu artırıldı → ${result.newMax} 🐄`, "build");
+      if (result.success) ctx.log(`Hayvan slotu artırıldı → ${result.newMax}`, "build");
       else ctx.log(`Başarısız: ${reasonText(result.reason)}`, "error");
       break;
     case "upgradeBuildingUpgrade":
       result = upgradeBuildingFromPanel(ctx.state, btn.dataset.building, deductGold, gold());
-      if (result.success) ctx.log("Bina geliştirildi 🏗️", "build");
-      else ctx.log(`Geliştirilemedi: ${reasonText(result.reason)}`, "error");
+      if (result.success) {
+        const bDef = BUILDING_TYPES[btn.dataset.building];
+        ctx.log(`${bDef.name} geliştirildi, Seviye ${result.newLevel}`, "build");
+      } else {
+        ctx.log(`Geliştirilemedi: ${reasonText(result.reason)}`, "error");
+      }
+      break;
+    case "buyFeature":
+      const featureId = btn.dataset.feature;
+      const featureResult = buyFeature(ctx.state, featureId, deductGold, gold());
+      if (featureResult.success) {
+        const fName = FEATURE_NAMES[featureId] || featureId;
+        ctx.log(`${fName} satın alındı! ${featureResult.cost}🪙`, "success");
+        render();
+        return;
+      } else {
+        ctx.log(`Satın alınamadı: ${reasonText(featureResult.reason)}`, "error");
+      }
       break;
   }
 }

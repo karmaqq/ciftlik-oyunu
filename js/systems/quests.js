@@ -42,8 +42,12 @@ function randomInt(min, max) {
 }
 
 export function ensureQuestPool(state, minCount = 3) {
+  const beforeCount = state.quests.length;
   while (state.quests.length < minCount) {
     state.quests.push(generateQuest());
+  }
+  if (state.quests.length > beforeCount && window._gameLog) {
+    window._gameLog("Yeni görevler mevcut!", "info");
   }
 }
 

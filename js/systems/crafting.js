@@ -1,12 +1,29 @@
 // js/systems/crafting.js
 import { getRecipe } from "../data/recipes.js";
-import { addItem, hasItem, removeItem } from "../state.js";
+import { addItem, removeItem, hasAnimalProduct, removeAnimalProduct, getAnimalProductCount } from "../state.js";
+
+function consumeForCraft(state, itemId, qty) {
+  let remaining = qty;
+  if (hasAnimalProduct(state, itemId, remaining)) {
+    const take = Math.min(remaining, getAnimalProductCount(state, itemId));
+    removeAnimalProduct(state, itemId, take);
+    remaining -= take;
+  }
+  if (remaining > 0) {
+    removeItem(state, itemId, remaining);
+  }
+}
 
 export function canCraft(state, recipeId, times = 1) {
   const recipe = getRecipe(recipeId);
   if (!recipe) return false;
   if (!state.unlockedTiers.includes(recipe.tier)) return false;
-  return recipe.inputs.every((input) => hasItem(state, input.id, input.qty * times));
+  return recipe.inputs.every((input) => {
+    const needed = input.qty * times;
+    const invQty = state.inventory.items[input.id]?.quantity || 0;
+    const animalQty = getAnimalProductCount(state, input.id);
+    return (invQty + animalQty) >= needed;
+  });
 }
 
 /**
@@ -21,7 +38,7 @@ export function craftRecipe(state, recipeId, times = 1) {
   if (!canCraft(state, recipeId, times)) return { success: false, reason: "eksik_malzeme" };
 
   for (const input of recipe.inputs) {
-    removeItem(state, input.id, input.qty * times);
+    consumeForCraft(state, input.id, input.qty * times);
   }
   addItem(state, recipe.output.id, recipe.output.qty * times);
 

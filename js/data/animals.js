@@ -1,17 +1,16 @@
 // js/data/animals.js
 // 3 tarla dışı bina: kovan (hive), kümes (coop), ahır (barn).
-// Her bina seviye başına: kapasite +%20, üretim hızı +%10 (max 5 seviye).
 
 export const BUILDING_TYPES = {
   hive: {
     id: "hive",
     name: "Kovan",
     animalName: "Arı",
-    baseCapacity: 40,
+    baseCapacity: 10,
+    capacityPerLevel: 10,
     productId: "bal",
     animalBuyPrice: 6,
-    baseProductionDays: 3, // her arı grubu bu sürede 1 üretim tetikler
-    // arılar ayrıca tarladaki çiçek açan bitkilerden (ay_cicegi, cilek, vb.) bonus üretim alır
+    baseProductionDays: 7,
     fieldBonusCropIds: ["ay_cicegi", "cilek", "ahududu"],
   },
   coop: {
@@ -19,6 +18,7 @@ export const BUILDING_TYPES = {
     name: "Kümes",
     animalName: "Tavuk",
     baseCapacity: 12,
+    capacityPerLevel: 2,
     productId: "yumurta",
     animalBuyPrice: 10,
     baseProductionDays: 1,
@@ -29,23 +29,22 @@ export const BUILDING_TYPES = {
     id: "barn",
     name: "Ahır",
     animalName: "İnek",
-    baseCapacity: 5,
+    baseCapacity: 3,
+    capacityPerLevel: 1,
     productId: "sut",
     animalBuyPrice: 40,
     baseProductionDays: 2,
-    // ineklerden düşük ihtimalle "inek eti" de elde edilir (özel ürün, hamburger tarifi için)
     secondaryProductId: "inek_eti",
     secondaryChance: 0.15,
   },
 };
 
 export const MAX_BUILDING_LEVEL = 5;
-export const BUILDING_CAPACITY_PER_LEVEL = 0.2; // +%20 / seviye
-export const BUILDING_SPEED_PER_LEVEL = 0.1; // +%10 / seviye
+export const BUILDING_SPEED_PER_LEVEL = 0.1;
 
 export function capacityForLevel(buildingType, level) {
-  const base = BUILDING_TYPES[buildingType].baseCapacity;
-  return Math.round(base * (1 + BUILDING_CAPACITY_PER_LEVEL * level));
+  const def = BUILDING_TYPES[buildingType];
+  return def.baseCapacity + def.capacityPerLevel * level;
 }
 
 export function speedMultiplierForLevel(level) {
