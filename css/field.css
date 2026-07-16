@@ -220,7 +220,7 @@
   border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
+  border: 0px var(--border-subtle);
   cursor: pointer;
   transition: all var(--transition-fast);
   line-height: 1;

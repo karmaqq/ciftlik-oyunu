@@ -1,120 +1,362 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*                          ÇİFTLİK OYUNU — GELİŞTİRME PANELİ                                     */
+/*                          ÇİFTLİK OYUNU — YETENEK AĞACI                       */
+/*  Mevcut panel diliyle uyumlu: bg-panel/bg-surface, büyük font, var() tabanlı */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-.upgrades-grid {
+/* ---------- AĞAÇ KÖK KAPAYICI ---------- */
+.skill-tree {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-md);
   padding: var(--space-sm);
-  overflow-y: auto;
-  max-height: calc(100vh - 200px);
 }
 
-.upgrade-section {
+/* ---------- KÖK NODE (Çiftlik) ---------- */
+.skill-root {
+  align-self: center;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--bg-elevated), var(--bg-deep));
+  border: 3px solid var(--accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xxs);
+  box-shadow: var(--shadow-glow), var(--shadow-lg);
+  position: relative;
+  z-index: 2;
+}
+
+.skill-root-icon {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.skill-root-label {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ---------- ANA GÖVDE ÇİZGİSİ (kök → dallar) ---------- */
+.skill-trunk {
+  width: 3px;
+  height: 28px;
+  align-self: center;
+  background: linear-gradient(to bottom, var(--accent), var(--accent-muted));
+  border-radius: 2px;
+  margin: -4px 0;
+}
+
+/* ---------- DAL GRUPLARI ---------- */
+.skill-branches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ---------- TEK BRANCH (kategori) ---------- */
+.skill-branch {
   background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  position: relative;
 }
 
-.upgrade-section h4 {
-  font-size: var(--font-md);
-  margin-bottom: var(--space-xs);
-  color: var(--text-primary);
-}
-
-.upgrade-row {
+/* Branch kök rozeti (branch başlığı) */
+.skill-branch-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-xs);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--border-default);
 }
 
-.upgrade-row:last-child {
-  border-bottom: none;
-}
-
-.upgrade-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.upgrade-label {
-  font-size: var(--font-md);
-  color: var(--text-primary);
-}
-
-.upgrade-status {
-  font-size: var(--font-sm);
-  color: var(--text-secondary);
-}
-
-.upgrade-btn {
-  font-size: var(--font-sm);
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--accent);
-  color: var(--text-inverse);
-  border-radius: var(--radius-sm);
-  border: none;
-  cursor: pointer;
-}
-
-.upgrade-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.upgrade-btn:disabled {
-  background: rgba(120, 30, 30, 0.15);
-  color: var(--text-muted);
-  cursor: not-allowed;
-  border-color: rgba(200, 60, 60, 0.3);
-  filter: grayscale(0.5) brightness(0.8);
-}
-
-/* Feature satın alma satırları */
-.feature-row {
-  background: rgba(74, 127, 212, 0.05);
-  border: 1px solid var(--accent-muted);
+.skill-branch-head-icon {
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-md);
-  padding: var(--space-sm);
+  background: var(--bg-elevated);
+  border: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-glow);
 }
 
-.feature-row:hover {
-  background: rgba(74, 127, 212, 0.1);
-  border-color: var(--accent);
-}
-
-.insufficient-gold {
-  background: rgba(180, 40, 40, 0.25) !important;
-  color: #e07070 !important;
-  border-color: rgba(200, 60, 60, 0.4) !important;
-  filter: grayscale(0.3) brightness(0.85);
-  cursor: not-allowed;
-}
-
-.building-upgrade-row {
+.skill-branch-head-text {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-xs);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: 2px;
 }
 
-.building-upgrade-row:last-child {
-  border-bottom: none;
+.skill-branch-title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
 }
 
-.building-upgrade-actions {
-  display: flex;
-  gap: var(--space-xs);
-}
-
-.market-category-header {
+.skill-branch-sub {
   font-size: var(--font-sm);
   color: var(--text-secondary);
-  padding: var(--space-xs) var(--space-sm);
-  margin-top: var(--space-xs);
-  border-bottom: 1px solid var(--border-subtle);
+  line-height: 1.1;
+}
+
+/* ---------- BRANCH İÇİ NODE GRID ---------- */
+.skill-nodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 4px;
+}
+
+/* ---------- TEK NODE (büyük upgrade kartı) ---------- */
+.skill-node {
+  position: relative;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-align: center;
+  min-height: 120px;
+  justify-content: flex-start;
+}
+
+/* Node ikonu (büyük, yuvarlak) */
+.skill-node-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 2px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  transition: all var(--transition-normal);
+}
+
+/* Node başlığı */
+.skill-node-title {
+  font-size: var(--font-md);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+/* Node alt ipucu */
+.skill-node-hint {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  line-height: 1.1;
+  padding: 0 var(--space-xxs);
+}
+
+/* ---------- KARE SEVİYE KUTUCUKLARI (büyük) ---------- */
+.skill-boxes {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: auto;
+  padding-top: 2px;
+  width: 100%;
+}
+
+.skill-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--bg-deep);
+  border: 1.5px solid var(--border-default);
+  transition: all 200ms ease;
+  position: relative;
+}
+
+/* Dolu kutucuk */
+.skill-box.is-filled {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.2);
+}
+
+/* Bir sonraki satın alınabilir kutucuk — nabız */
+.skill-box.is-next {
+  background: transparent;
+  border: 2px solid var(--accent);
+  animation: skill-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skill-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(74, 127, 212, 0.45);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(74, 127, 212, 0);
+    transform: scale(1.18);
+  }
+}
+
+/* Max son kutucuğu — altın taç */
+.skill-box.is-crown {
+  background: var(--gold);
+  border-color: var(--gold);
+  box-shadow: var(--shadow-glow-gold);
+}
+
+.skill-box.is-crown::after {
+  content: "✦";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -52%);
+  font-size: 12px;
+  color: var(--bg-deep);
+  font-weight: 900;
+}
+
+/* ---------- MALİYET ROZETİ ---------- */
+.skill-node-cost {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(240, 192, 64, 0.1);
+  border: 1px solid rgba(240, 192, 64, 0.3);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+/* ---------- DURUM SINIFLARI ---------- */
+
+/* Kilitli — prereq feature alınmamış */
+.skill-node.is-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
+  border-color: var(--border-subtle);
+  background: var(--bg-panel);
+}
+
+.skill-node.is-locked .skill-node-icon {
+  filter: grayscale(0.7) brightness(0.7);
+}
+
+.skill-node.is-locked .skill-node-cost {
+  color: var(--text-muted);
+  background: transparent;
+  border-color: var(--border-default);
+}
+
+/* Kilit rozeti */
+.skill-lock-badge {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-weight: 700;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Satın alınabilir — hover vurgu */
+.skill-node.is-available:hover {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-glow), var(--shadow-lg);
+}
+
+.skill-node.is-available:hover .skill-node-icon {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Yetersiz altın — düz kırmızı border */
+.skill-node.is-poor {
+  border-color: var(--danger);
+}
+
+.skill-node.is-poor .skill-node-cost {
+  color: var(--danger);
+  background: rgba(208, 72, 56, 0.15);
+  border-color: rgba(208, 72, 56, 0.4);
+}
+
+/* Max seviye / Satın alınmış — solgun */
+.skill-node.is-maxed {
+  border-color: var(--gold);
+  background: rgba(240, 192, 64, 0.06);
+  cursor: default;
+  opacity: 0.55;
+  filter: grayscale(0.45);
+}
+
+.skill-node.is-maxed .skill-node-cost {
+  color: var(--gold);
+  background: rgba(240, 192, 64, 0.12);
+  border-color: var(--gold);
+}
+
+.skill-node.is-maxed .skill-node-icon {
+  border-color: var(--gold);
+  box-shadow: var(--shadow-glow-gold);
+}
+
+/* Tek-seferlik feature (kare kutucuk yok) */
+.skill-node.is-feature .skill-boxes {
+  display: none;
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 900px) {
+  .skill-root {
+    width: 100px;
+    height: 100px;
+  }
+  .skill-root-icon {
+    font-size: 34px;
+  }
+  .skill-branch {
+    padding: var(--space-sm);
+  }
+  .skill-nodes {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .skill-nodes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .skill-branch-head-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+  .skill-branch-title {
+    font-size: var(--font-md);
+  }
 }
