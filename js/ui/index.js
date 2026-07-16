@@ -5,7 +5,7 @@
 // Koordinatör: initUI, render, tickUpdate ve yardımcı senkronizasyon fonksiyonları.
 
 import { setContext, getContext, flushSave, inventoryFilter } from "./shared.js";
-import { renderHeader, updateHeaderTick, setNewGameCallback } from "./header.js";
+import { renderHeader, updateHeaderTick } from "./header.js";
 import { renderInventory } from "./inventory.js";
 import { fieldGridHTML, orchardGridHTML, updateSlotsTick } from "./field.js";
 import { renderBuildingTab } from "./buildings.js";
@@ -14,6 +14,8 @@ import { craftingHTML } from "./crafting.js";
 import { renderUpgrades } from "./upgrades.js";
 import { wireStaticEvents } from "./events.js";
 import { checkHints } from "./hints.js";
+import { initTooltip, refreshOpenTooltip } from "./tooltip.js";
+import { initSettings, setNewGameCallback as setSettingsNewGameCallback } from "./settings.js";
 /* ─────────────────── İpuçlarını kontrol et ─────────────────── */
 export { checkHints };
 
@@ -25,8 +27,10 @@ let _overflowRafId = 0;
 /* ─────────────────── Arayüzü başlat ─────────────────── */
 export function initUI(state, log, newGameCallback) {
   setContext(state, log);
-  setNewGameCallback(newGameCallback || null);
+  setSettingsNewGameCallback(newGameCallback || null);
   wireStaticEvents(render);
+  initTooltip();
+  initSettings();
 
   window.addEventListener("beforeunload", () => flushSave());
   document.addEventListener("visibilitychange", () => {
@@ -82,6 +86,7 @@ export function tickUpdate() {
   }
 
   checkLabelOverflow();
+  refreshOpenTooltip();
 }
 
 function syncFeatureTabs() {

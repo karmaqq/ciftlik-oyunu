@@ -9,7 +9,7 @@ import { currentSeason } from "./time.js";
 import { getWeather } from "./weather.js";
 
 // Mevsimsel fiyat çarpanları (satış fiyatı için)
-const SEASON_SELL_MULTIPLIER = {
+export const SEASON_SELL_MULTIPLIER = {
   // +%5 satış zamı
   ilkbahar: 1.05,
   // +%10 satış zamı
@@ -21,7 +21,7 @@ const SEASON_SELL_MULTIPLIER = {
 };
 
 // Mevsimsel alış fiyat çarpanları (tohum/fidan için)
-const SEASON_BUY_MULTIPLIER = {
+export const SEASON_BUY_MULTIPLIER = {
   // Tohumlar ucuz (ekim zamanı)
   ilkbahar: 0.85,
   // Normal + az zam
@@ -33,7 +33,7 @@ const SEASON_BUY_MULTIPLIER = {
 };
 
 // Mevsimsel fidan fiyat çarpanları
-const SEASON_SAPLING_MULTIPLIER = {
+export const SEASON_SAPLING_MULTIPLIER = {
   // Fidanlar pahalı (talep yüksek)
   ilkbahar: 1.10,
   // Fidanlar ucuz
@@ -45,7 +45,7 @@ const SEASON_SAPLING_MULTIPLIER = {
 };
 
 // Hava durumu ek çarpanları
-const WEATHER_BUY_MULTIPLIER = {
+export const WEATHER_BUY_MULTIPLIER = {
   normal: 1.0,
   // -%5 genel ucuzluk
   yagmurlu: 0.95,
@@ -58,7 +58,7 @@ const WEATHER_BUY_MULTIPLIER = {
 };
 
 // Nadir ürünler için ekstra çarpan
-const WEATHER_RARITY_BONUS = {
+export const WEATHER_RARITY_BONUS = {
   // Nadir ürünlerde -%20
   gokkusagi: 0.80,
 };
@@ -89,7 +89,7 @@ export function getCalendarBuyMultiplier(state, category) {
   // Hava durumu etkisi
   multiplier *= WEATHER_BUY_MULTIPLIER[weather.id] || 1.0;
 
-  return Math.round(multiplier);
+  return multiplier;
 }
 
 /**
@@ -115,7 +115,7 @@ export function getCalendarSellMultiplier(state, rarity) {
     multiplier *= WEATHER_RARITY_BONUS[weather.id];
   }
 
-  return Math.round(multiplier);
+  return multiplier;
 }
 
 /**

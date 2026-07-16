@@ -56,3 +56,28 @@
   border-color: var(--danger);
   color: var(--danger);
 }
+
+.hdr-settings-btn {
+  background: transparent;
+  border: 1px solid var(--text-secondary);
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hdr-settings-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.hdr-settings-btn svg {
+  width: 16px;
+  height: 16px;
+}

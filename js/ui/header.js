@@ -9,10 +9,7 @@ import { getWeather } from "../systems/weather.js";
 import { MARKET_REFRESH_SECONDS } from "../systems/market.js";
 import { getCalendarTradeInfo } from "../systems/calendarTrade.js";
 import { getContext, gold, seasonEmoji, weatherEmoji } from "./shared.js";
-
-let _onNewGame = null;
-/* ─────────────────── Yeni oyun callback'ini ayarla ─────────────────── */
-export function setNewGameCallback(cb) { _onNewGame = cb; }
+import { openSettings } from "./settings.js";
 
 /* ─────────────────── Header panelini oluştur ─────────────────── */
 export function renderHeader() {
@@ -37,7 +34,7 @@ export function renderHeader() {
   const queueCount = ctx.state.inventory.queue.length;
 
   const timeInfoHtml = calendarActive
-    ? `<div class="hdr-item"><span class="hdr-time-info">Yıl ${ctx.state.time.year} · ${season.charAt(0).toUpperCase() + season.slice(1)} · ${ctx.state.time.day} ${monthName} ${weatherEmojiStr} ${weather.name}</span></div>`
+    ? `<div class="hdr-item"><span class="hdr-time-info" data-tt="calendarInfo">Yıl ${ctx.state.time.year} · ${season.charAt(0).toUpperCase() + season.slice(1)} · ${ctx.state.time.day} ${monthName} ${weatherEmojiStr} ${weather.name}</span></div>`
     : "";
 
   document.getElementById("header").innerHTML = `
@@ -45,14 +42,12 @@ export function renderHeader() {
     ${timeInfoHtml}
     <div class="hdr-item ml-auto"><span class="hdr-market-timer">🏪 Market: ${marketSeconds}s</span></div>
     ${queueCount > 0 ? `<div class="hdr-item hdr-queue"><span class="hdr-queue-count">📦 ${queueCount}</span></div>` : ""}
-    <div class="hdr-item"><button class="new-game-btn" id="new-game-btn">🔄 Yeni Oyun</button></div>
+    <div class="hdr-item"><button class="hdr-settings-btn" id="settings-btn" title="Ayarlar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button></div>
   `;
 
-  const ngBtn = document.getElementById("new-game-btn");
-  if (ngBtn) {
-    ngBtn.addEventListener("click", () => {
-      if (_onNewGame) _onNewGame();
-    });
+  const settingsBtn = document.getElementById("settings-btn");
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => openSettings());
   }
 }
 

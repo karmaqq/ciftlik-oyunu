@@ -93,7 +93,7 @@ export function marketHTML() {
 
       if (isAnimal) {
         return `${categoryHeader}<div class="market-row${soldOutClass}">
-          <div class="mr-left">
+          <div class="mr-left" data-tt="marketInfo" data-tt-index="${i}">
             <span class="mr-icon">${icon}</span>
             <div class="mr-info">
               <span class="mr-name">${name}</span>
@@ -101,16 +101,16 @@ export function marketHTML() {
             </div>
           </div>
           ${soldOut
-            ? `<span class="mr-soldout">Tükendi</span>`
+            ? `<span class="mr-soldout" data-tt="soldOut">Tükendi</span>`
             : `<div class="mr-right">
-                <button class="${btnClass(i, "buyOne", unitPrice)}" data-action="buyOne" data-index="${i}" ${buyDisabled ? "disabled" : ""}><span class="btn-label">1x</span><span class="btn-price">${unitPrice}</span></button>
+                <button class="${btnClass(i, "buyOne", unitPrice)}" data-action="buyOne" data-index="${i}" data-tt="marketBuy" data-tt-index="${i}" data-tt-mode="single" ${buyDisabled ? "disabled" : ""}><span class="btn-label">1x</span><span class="btn-price">${unitPrice}</span></button>
               </div>`
           }
         </div>`;
       }
 
       return `${categoryHeader}<div class="market-row${soldOutClass}">
-        <div class="mr-left">
+        <div class="mr-left" data-tt="marketInfo" data-tt-index="${i}">
           <span class="mr-icon">${icon}</span>
           <div class="mr-info">
             <span class="mr-name">${name}</span>
@@ -118,10 +118,10 @@ export function marketHTML() {
           </div>
         </div>
         ${soldOut
-          ? `<span class="mr-soldout">Tükendi</span>`
+          ? `<span class="mr-soldout" data-tt="soldOut">Tükendi</span>`
           : `<div class="mr-right">
-              <button class="${btnClass(i, "buyOne", unitPrice)}" data-action="buyOne" data-index="${i}" ${buyDisabled ? "disabled" : ""}><span class="btn-label">1x</span><span class="btn-price">${unitPrice}</span></button>
-              <button class="${btnClass(i, "buyAll", bulkCost)}" data-action="buyAll" data-index="${i}" ${buyDisabled ? "disabled" : ""}><span class="btn-label">${listing.remaining}x</span><span class="btn-price">${bulkCost}</span></button>
+              <button class="${btnClass(i, "buyOne", unitPrice)}" data-action="buyOne" data-index="${i}" data-tt="marketBuy" data-tt-index="${i}" data-tt-mode="single" ${buyDisabled ? "disabled" : ""}><span class="btn-label">1x</span><span class="btn-price">${unitPrice}</span></button>
+              <button class="${btnClass(i, "buyAll", bulkCost)}" data-action="buyAll" data-index="${i}" data-tt="marketBuy" data-tt-index="${i}" data-tt-mode="bulk" ${buyDisabled ? "disabled" : ""}><span class="btn-label">${listing.remaining}x</span><span class="btn-price">${bulkCost}</span></button>
             </div>`
         }
       </div>`;
@@ -130,6 +130,6 @@ export function marketHTML() {
 
   return `
     <div class="market-list">${rows || "<p>Yükleniyor…</p>"}</div>
-    <div class="market-info">Toplu alımda %${discountPct} indirim Uygulanır..</div>
+    <div class="market-info" data-tt="bulkDiscount">Toplu alımda %${discountPct} indirim Uygulanır..</div>
   `;
 }

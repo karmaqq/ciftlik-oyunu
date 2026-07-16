@@ -95,6 +95,26 @@ export function saveQuickSellMode(mode) {
   localStorage.setItem("quickSellMode", mode);
 }
 
+/* ─────────────────── Ayar oku ─────────────────── */
+export function getSetting(key, fallback) {
+  try {
+    const raw = localStorage.getItem(`setting_${key}`);
+    if (raw === null) return fallback;
+    return JSON.parse(raw);
+  } catch (e) {
+    return fallback;
+  }
+}
+
+/* ─────────────────── Ayar yaz ─────────────────── */
+export function setSetting(key, value) {
+  try {
+    localStorage.setItem(`setting_${key}`, JSON.stringify(value));
+  } catch (e) {
+    /* quota aşımı vb. sessizce yoksay */
+  }
+}
+
 // --- Kaydetme yardımcıları ---
 
 let _saveDirty = false;

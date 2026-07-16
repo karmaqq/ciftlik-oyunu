@@ -21,7 +21,7 @@ export function renderBuildingTab() {
     if (qty > 0) {
       const name = itemDisplayName(productId);
       storedProducts.push(
-        `<div class="building-product-cell" draggable="true" data-product-id="${productId}" data-source="building">
+        `<div class="building-product-cell" draggable="true" data-product-id="${productId}" data-source="building" data-tt="product" data-tt-item="${productId}">
           <span class="building-product-emoji">${itemEmoji(productId)}</span>
           <span class="building-product-qty">${qty}</span>
         </div>`
@@ -31,7 +31,7 @@ export function renderBuildingTab() {
 
   document.getElementById("building-content").innerHTML = `
     <div class="building-panel">
-      <div class="building-panel-info">
+      <div class="building-panel-info" data-tt="buildingCapacity" data-tt-building="${type}">
         <h3>Seviye ${building.level}</h3>
         <p>${def.animalName}: ${building.population} / ${capacity}</p>
         <p>${building.population > 0 ? `${def.baseProductionDays} günde ${building.population} ${itemDisplayName(def.productId)}` : "Hayvan yok"}</p>

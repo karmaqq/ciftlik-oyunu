@@ -73,6 +73,7 @@
   /* Z-index */
   --z-base: 1;
   --z-log: 50;
+  --z-tooltip: 999;
 
   font-size: 14px;
 }
