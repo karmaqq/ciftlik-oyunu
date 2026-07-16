@@ -108,7 +108,7 @@ export function unlockSlot(state, slotIndex, cost, playerCanAfford, deductGold) 
   return { success: true };
 }
 
-export const FIELD_UPGRADE_BASE_COST = 40;
+export const FIELD_UPGRADE_BASE_COST = 20;
 export function fieldUpgradeCost(currentLevel) {
-  return Math.round(FIELD_UPGRADE_BASE_COST * Math.pow(1.35, currentLevel));
+  return Math.round(FIELD_UPGRADE_BASE_COST * Math.pow(1.3, currentLevel));
 }

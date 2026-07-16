@@ -1,6 +1,6 @@
 // js/data/items.js
 // Envanterdeki HERHANGİ bir itemId için görünen isim ve satış fiyatını çözer.
-// Tohum/fidan/kaliteli varyantları da otomatik türetir.
+// Tohum/fidan varyantları da otomatik türetir.
 
 import { getCrop } from "./crops.js";
 import { getTree } from "./trees.js";
@@ -44,14 +44,14 @@ const RECIPE_EMOJI = {
 };
 
 const ANIMAL_PRODUCTS = {
-  bal: { name: "Bal", sellPrice: 8 },
-  yumurta: { name: "Yumurta", sellPrice: 3 },
-  sut: { name: "Süt", sellPrice: 4 },
-  inek_eti: { name: "İnek Eti", sellPrice: 15 },
-  tavuk_eti: { name: "Tavuk Eti", sellPrice: 8 },
+  bal: { name: "Bal", sellPrice: 6 },
+  yumurta: { name: "Yumurta", sellPrice: 2 },
+  sut: { name: "Süt", sellPrice: 3 },
+  inek_eti: { name: "İnek Eti", sellPrice: 20 },
+  tavuk_eti: { name: "Tavuk Eti", sellPrice: 10 },
 };
 
-const TIER_MULTIPLIER = { 1: 1.2, 2: 1.25, 3: 1.35, 4: 1.5 };
+const TIER_MULTIPLIER = { 1: 1.2, 2: 1.3, 3: 1.4, 4: 1.5 };
 
 function craftedSellPrice(recipeId, costs, seen) {
   if (costs[recipeId] !== undefined) return costs[recipeId];
@@ -94,10 +94,6 @@ export function itemEmoji(itemId) {
     const baseId = itemId.replace(/_fidan$/, "");
     return TREE_EMOJI[baseId] || "📦";
   }
-  if (itemId.endsWith("_kaliteli")) {
-    const baseId = itemId.replace(/_kaliteli$/, "");
-    return "✨" + (CROP_EMOJI[baseId] || TREE_EMOJI[baseId] || "⭐");
-  }
   if (CROP_EMOJI[itemId]) return CROP_EMOJI[itemId];
   if (TREE_EMOJI[itemId]) return TREE_EMOJI[itemId];
   if (ANIMAL_EMOJI[itemId]) return ANIMAL_EMOJI[itemId];
@@ -109,17 +105,12 @@ export function resolveItem(itemId) {
   if (itemId.endsWith("_tohum")) {
     const baseId = itemId.replace(/_tohum$/, "");
     const crop = getCrop(baseId);
-    if (crop) return { name: `${crop.name} Tohumu`, sellPrice: Math.round(crop.buyPrice * 0.4), buyPrice: crop.buyPrice, emoji: CROP_EMOJI[baseId] || "📦" };
+    if (crop) return { name: `${crop.name} Tohumu`, sellPrice: Math.round(crop.buyPrice * 0.5), buyPrice: crop.buyPrice, emoji: CROP_EMOJI[baseId] || "📦" };
   }
   if (itemId.endsWith("_fidan")) {
     const baseId = itemId.replace(/_fidan$/, "");
     const tree = getTree(baseId);
-    if (tree) return { name: `${tree.name} Fidanı`, sellPrice: Math.round(tree.buyPrice * 0.4), buyPrice: tree.buyPrice, emoji: TREE_EMOJI[baseId] || "📦" };
-  }
-  if (itemId.endsWith("_kaliteli")) {
-    const baseId = itemId.replace(/_kaliteli$/, "");
-    const base = resolveItem(baseId);
-    return { name: `Kaliteli ${base.name}`, sellPrice: base.sellPrice ? base.sellPrice * 4 : 20, emoji: "✨" + (base.emoji || "⭐") };
+    if (tree) return { name: `${tree.name} Fidanı`, sellPrice: Math.round(tree.buyPrice * 0.5), buyPrice: tree.buyPrice, emoji: TREE_EMOJI[baseId] || "📦" };
   }
 
   const crop = getCrop(itemId);

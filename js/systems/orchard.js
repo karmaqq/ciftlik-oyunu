@@ -99,7 +99,7 @@ export function removePlant(state, slotIndex) {
   return { success: true };
 }
 
-export const ORCHARD_UPGRADE_BASE_COST = 60;
+export const ORCHARD_UPGRADE_BASE_COST = 30;
 export function orchardUpgradeCost(currentLevel) {
-  return Math.round(ORCHARD_UPGRADE_BASE_COST * Math.pow(1.35, currentLevel));
+  return Math.round(ORCHARD_UPGRADE_BASE_COST * Math.pow(1.3, currentLevel));
 }

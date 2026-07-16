@@ -7,15 +7,15 @@ import { TREES, getTree } from "./data/trees.js";
 import { RECIPES } from "./data/recipes.js";
 import { BUILDING_TYPES, capacityForLevel, MAX_BUILDING_LEVEL } from "./data/animals.js";
 import { itemDisplayName, itemSellPrice, itemEmoji } from "./data/items.js";
-import { formatTime, currentSeason, MONTHS } from "./systems/time.js";
+import { currentSeason, MONTHS } from "./systems/time.js";
 import { getWeather } from "./systems/weather.js";
 import { getInventoryList, FILTERS } from "./systems/inventory.js";
 import { plantSeed, harvestSlot, fieldUpgradeCost, unlockSlot, removePlant } from "./systems/field.js";
 import { plantTree, harvestOrchardSlot, orchardUpgradeCost, removePlant as removePlantOrchard } from "./systems/orchard.js";
 import { buildingUpgradeCost } from "./systems/buildings.js";
-import { buyOneSeed, buyAllSeeds, sellItem, getBulkDiscountPercent } from "./systems/market.js";
+import { buyOneSeed, buyAllSeeds, sellItem, getBulkDiscountPercent, MARKET_REFRESH_SECONDS } from "./systems/market.js";
 import { craftRecipe, canCraft } from "./systems/crafting.js";
-import { ensureQuestPool, claimQuest, registerProgress } from "./systems/quests.js";
+
 import {
   upgradeFieldSlot,
   upgradeOrchardSlot,
@@ -90,15 +90,11 @@ export function initUI(state, log, newGameCallback) {
   });
 }
 
-function gold() { return ctx.state.player.gold; }
-function deductGold(amount) { ctx.state.player.gold -= amount; }
-function addGold(amount) { ctx.state.player.gold += amount; }
+function gold() { return Math.floor(ctx.state.player.gold); }
+function deductGold(amount) { ctx.state.player.gold -= Math.floor(amount); }
+function addGold(amount) { ctx.state.player.gold += Math.floor(amount); }
 
-function setTooltip(html) {
-  const id = window._ttNextId();
-  window._ttStore.set(id, html);
-  return id;
-}
+
 
 function reasonText(r) {
   const map = {
@@ -156,67 +152,12 @@ function highlightRecipes(itemId, highlight) {
   });
 }
 
-function ttTitle(text) { return `<div class="tt-title">${text}</div>`; }
-function ttRow(icon, label, value, colorClass) {
-  const cls = colorClass ? ` ${colorClass}` : "";
-  return `<div class="tt-row">${icon ? icon + " " : ""}<span class="tt-label">${label}</span> <span class="tt-value${cls}">${value}</span></div>`;
-}
-function ttDivider() { return `<hr class="tt-divider">`; }
-function ttHint(text) { return `<div class="tt-hint">${text}</div>`; }
 
-function weatherTooltip(w) {
-  const lines = [ttTitle(`${w.name}`)];
-  const speed = w.growthSpeedMultiplier;
-  const speedColor = speed > 1 ? "green" : speed < 1 ? "red" : "";
-  lines.push(ttRow("🌱", "Büyüme:", `x${speed}`, speedColor));
-  if (w.rarityChance && Object.keys(w.rarityChance).length > 0) {
-    const rarities = Object.entries(w.rarityChance)
-      .map(([r, ch]) => `${r}: %${Math.round(ch * 100)}`)
-      .join(" · ");
-    lines.push(ttRow("💎", "", rarities, "blue"));
-  }
-  if (w.tradeLossChance > 0) lines.push(ttRow("⚠️", "Ticaret riski:", `%${Math.round(w.tradeLossChance * 100)}`, "red"));
-  if (w.mergeFailChance > 0) lines.push(ttRow("⚠️", "Birleştirme riski:", `%${Math.round(w.mergeFailChance * 100)}`, "red"));
-  return lines.join("");
-}
-
-function cropTooltip(cropId) {
-  const c = getCrop(cropId);
-  if (!c) return cropId;
-  const emoji = itemEmoji(cropId);
-  const seasons = c.seasons.map((s) => `${seasonEmoji(s)}${s}`).join(" ");
-  const harvestText = c.harvestCycle === "recurring" ? `Her ${c.recurringIntervalDays} günde bir` : "Tek hasat";
-  return [
-    ttTitle(`${emoji} ${c.name}`),
-    ttRow("📅", "Mevsim:", seasons),
-    ttRow("⏱️", "Büyüme:", `${c.growthDays} gün`),
-    ttRow("🔄", "", harvestText),
-    ttDivider(),
-    ttRow("🪙", "Alış:", `${c.buyPrice}`, "gold"),
-    ttRow("💰", "Satış:", `${c.sellPrice}`, "green"),
-  ].join("");
-}
-
-function treeTooltip(treeId) {
-  const t = getTree(treeId);
-  if (!t) return treeId;
-  const emoji = itemEmoji(treeId);
-  const seasons = t.seasons.map((s) => `${seasonEmoji(s)}${s}`).join(" ");
-  return [
-    ttTitle(`${emoji} ${t.name}`),
-    ttRow("📅", "Mevsim:", seasons),
-    ttRow("⏱️", "Büyüme:", `${t.growthDays} gün`),
-    ttDivider(),
-    ttRow("🪙", "Alış:", `${t.buyPrice}`, "gold"),
-    ttRow("💰", "Satış:", `${t.sellPrice}`, "green"),
-  ].join("");
-}
 
 // ---------------------------------------------------------------------------
 // ANA RENDER
 // ---------------------------------------------------------------------------
 export function render() {
-  window._ttStore.clear();
   renderHeader();
   renderInventory();
   syncFeatureTabs();
@@ -227,7 +168,6 @@ export function render() {
   const rightEl = document.getElementById("right-content");
   if (rightTab === "market") rightEl.innerHTML = marketHTML();
   else if (rightTab === "crafting") rightEl.innerHTML = craftingHTML();
-  else if (rightTab === "quests") rightEl.innerHTML = questsHTML();
   else if (rightTab === "upgrades") renderUpgrades();
 
   syncTabButtons();
@@ -346,7 +286,7 @@ function updateHeaderTick() {
 
   // Altın
   const goldEl = hdrEl.querySelector(".hdr-gold-val");
-  if (goldEl) goldEl.textContent = s.player.gold;
+  if (goldEl) goldEl.textContent = gold().toLocaleString("tr-TR");
 
   // Zaman bilgisi (sadece takvim açıksa)
   const calendarActive = s.features && s.features.calendar;
@@ -362,7 +302,7 @@ function updateHeaderTick() {
   // Market geri sayımı
   const marketEl = hdrEl.querySelector(".hdr-market-timer");
   if (marketEl) {
-    const marketSeconds = Math.max(0, 120 - Math.round(s.market.secondsSinceRefresh));
+    const marketSeconds = Math.max(0, MARKET_REFRESH_SECONDS - Math.round(s.market.secondsSinceRefresh));
     marketEl.textContent = `🏪 Market: ${marketSeconds}s`;
   }
 
@@ -406,74 +346,6 @@ function updateSlotsTick(kind) {
       slotEl.classList.add("growing");
       slotEl.classList.remove("ready");
       slotEl.dataset.action = "";
-    }
-
-    // Tooltip güncelle (anlık süre ve büyüme yüzdesi)
-    const def = dataset.find((d) => d.id === slot.planted.cropId);
-    const cropName = def ? def.name : slot.planted.cropId;
-    const speedPct = Math.round(FIELD_LEVEL_SPEED_BONUS * 100 * slot.level);
-    const remainingSec = Math.max(0, Math.round(slot.planted.requiredSeconds - slot.planted.elapsedSeconds));
-    const remainingMin = Math.floor(remainingSec / 60);
-    const remainSec = remainingSec % 60;
-    const harvestsLeft = slot.planted.harvestsLeft || 0;
-    const maxHarvests = slot.planted.maxHarvests || 0;
-    const harvestInfo = ttRow("🌾", "Kalan Hasat:", `${harvestsLeft}/${maxHarvests}`);
-
-    // Hava durumu bilgisi
-    const weather = getWeather(ctx.state.weather);
-    const weatherName = weather.name;
-    const weatherBonus = weather.growthSpeedMultiplier;
-    const weatherPct = Math.round((weatherBonus - 1) * 100);
-    const weatherInfo = weatherPct !== 0
-      ? ttRow("🌡️", "Hava:", `${weatherName} (${weatherPct > 0 ? '+' : ''}${weatherPct}%)`)
-      : ttRow("🌡️", "Hava:", weatherName);
-
-    // Toplam hız çarpanı
-    const totalMult = (1 + FIELD_LEVEL_SPEED_BONUS * slot.level) * weatherBonus;
-    const totalSpeedPct = Math.round((totalMult - 1) * 100);
-    const totalSpeedInfo = totalSpeedPct !== 0
-      ? ttRow("⚡", "Toplam Hız:", `+${totalSpeedPct}%`)
-      : "";
-
-    let newTooltip;
-    if (ready) {
-      newTooltip = [
-        ttTitle(`${cropName}`),
-        ttRow("✅", "Durum:", "Hasat hazır!", "green"),
-        harvestInfo,
-        ttDivider(),
-        ttRow("⚡", "Hız:", `+%${speedPct}`),
-        weatherInfo,
-        totalSpeedInfo,
-        ttDivider(),
-        ttHint("Tıklayarak hasat et"),
-      ].join("");
-    } else {
-      const growInfo = getCrop(slot.planted.cropId)
-        ? `${getCrop(slot.planted.cropId).harvestCycle === "recurring" ? "Tekrarlı" : "Tek hasat"}`
-        : getTree(slot.planted.cropId) ? "Tekrarlı" : "";
-      newTooltip = [
-        ttTitle(`${cropName}`),
-        ttRow("📊", "Büyüme:", `%${pct}`),
-        ttRow("⏱️", "Kalan:", `${remainingMin}dk ${remainSec}sn`),
-        harvestInfo,
-        ttDivider(),
-        ttRow("⚡", "Hız:", `+%${speedPct}`),
-        weatherInfo,
-        totalSpeedInfo,
-        growInfo ? ttRow("🔄", "", growInfo) : "",
-      ].join("");
-    }
-
-    // Tooltip'i güncelle
-    const tooltipId = slotEl.dataset.tooltip;
-    if (tooltipId && window._ttStore.has(tooltipId)) {
-      window._ttStore.set(tooltipId, newTooltip);
-      // Eğer tooltip şu an visible ise DOM içeriğini de güncelle
-      if (window._currentTooltipTarget === slotEl) {
-        const ttInner = document.querySelector("#game-tooltip .tt-inner");
-        if (ttInner) ttInner.innerHTML = newTooltip;
-      }
     }
   });
 }
@@ -592,86 +464,21 @@ function renderHeader() {
     sonbahar: "Nar, incir, bal kabağı hasat zamanı.",
     kış: "Narenciye ve serada yetişen ürünler öne çıkar.",
   };
-  const w = getWeather(ctx.state.weather);
-  const speedPct = Math.round((w.growthSpeedMultiplier - 1) * 100);
-  const speedLabel = speedPct > 0 ? `+%${speedPct}` : speedPct < 0 ? `-%${Math.abs(speedPct)}` : "normal";
-  const speedColor = speedPct > 0 ? "green" : speedPct < 0 ? "red" : "";
-  const weatherLines = [
-    ttRow("", "Büyüme:", speedLabel, speedColor),
-  ];
-  if (w.tradeLossChance > 0) weatherLines.push(ttRow("", "Ticaret riski:", `%${Math.round(w.tradeLossChance * 100)}`, "red"));
-  if (w.mergeFailChance > 0) weatherLines.push(ttRow("", "Birleştirme riski:", `%${Math.round(w.mergeFailChance * 100)}`, "red"));
-  if (w.rarityChance && Object.keys(w.rarityChance).length > 0) {
-    const rarities = Object.entries(w.rarityChance)
-      .map(([r, ch]) => `${r}: %${Math.round(ch * 100)}`)
-      .join(" · ");
-    weatherLines.push(ttRow("", "", rarities, "blue"));
-  }
 
-  // Takvim ticaret bonus bilgisi (sadece takvim açıksa)
-  if (calendarActive) {
-    const buyMult = calendarInfo.buyMultiplierSeed;
-    const sellMult = calendarInfo.sellMultiplier;
-    const buyColor = buyMult < 1 ? "green" : buyMult > 1 ? "red" : "";
-    const sellColor = sellMult > 1 ? "green" : sellMult < 1 ? "red" : "";
-    weatherLines.push(ttDivider());
-    weatherLines.push(ttRow("📅", "Takvim Ticaret:", "", ""));
-    weatherLines.push(ttRow("", "Alış:", `${buyMult < 1 ? "-" : buyMult > 1 ? "+" : ""}%${Math.abs(Math.round((buyMult - 1) * 100))}`, buyColor));
-    weatherLines.push(ttRow("", "Satış:", `${sellMult > 1 ? "+" : sellMult < 1 ? "-" : ""}%${Math.abs(Math.round((sellMult - 1) * 100))}`, sellColor));
-    weatherLines.push(ttRow("", "Mevsim:", `${calendarInfo.seasonName} — ${calendarInfo.seasonEffect}`));
-    weatherLines.push(ttRow("", "Hava:", calendarInfo.weatherEffect));
-  }
-
-  const timeTooltip = [
-    ttTitle(`${seasonEmojiStr} ${season.charAt(0).toUpperCase() + season.slice(1)}`),
-    ttRow("", "", seasonEffect[season] || ""),
-    ttDivider(),
-    ttTitle(`${weatherEmojiStr} ${w.name.charAt(0).toUpperCase() + w.name.slice(1)}`),
-    ...weatherLines,
-  ].join("");
-  const goldTooltip = [
-    ttTitle("🪙 Altın"),
-    ttRow("", "Toplam:", `${gold()}`, "gold"),
-    ttDivider(),
-    ttHint("Envanterdeki eşyaları tıklayarak sat"),
-  ].join("");
-
-  const marketSeconds = Math.max(0, 120 - Math.round(ctx.state.market.secondsSinceRefresh));
-  const marketTooltip = [
-    ttTitle("🔄 Pazar Yenileme"),
-    ttRow("⏱️", "Kalan:", `${marketSeconds} saniye`),
-    ttHint("Yeni ürünler gelecek"),
-  ].join("");
+  const marketSeconds = Math.max(0, MARKET_REFRESH_SECONDS - Math.round(ctx.state.market.secondsSinceRefresh));
 
   const queueCount = ctx.state.inventory.queue.length;
-  const queueTooltip = queueCount > 0
-    ? [
-      ttTitle("📦 Bekleyen Ürünler"),
-      ttRow("📦", "Sayı:", `${queueCount}`),
-      ttDivider(),
-      ...Object.entries(
-        ctx.state.inventory.queue.reduce((acc, q) => {
-          acc[q.itemId] = (acc[q.itemId] || 0) + q.qty;
-          return acc;
-        }, {})
-      ).map(([id, qty]) =>
-        ttRow(itemEmoji(id), "", `${qty} adet ${itemDisplayName(id)}`)
-      ),
-      ttDivider(),
-      ttHint("Envanter boşaldıkça otomatik eklenecek"),
-    ].join("")
-    : ttTitle("📦 Bekleyen Ürünler") + ttHint("Kuyrukta ürün yok");
 
   // Takvim gizliyken zaman bilgisini gösterme
   const timeInfoHtml = calendarActive
-    ? `<div class="hdr-item" data-tooltip="${setTooltip(timeTooltip)}"><span class="hdr-time-info">Yıl ${ctx.state.time.year} · ${season.charAt(0).toUpperCase() + season.slice(1)} · ${ctx.state.time.day} ${monthName} ${weatherEmojiStr} ${weather.name}</span></div>`
+    ? `<div class="hdr-item"><span class="hdr-time-info">Yıl ${ctx.state.time.year} · ${season.charAt(0).toUpperCase() + season.slice(1)} · ${ctx.state.time.day} ${monthName} ${weatherEmojiStr} ${weather.name}</span></div>`
     : "";
 
   document.getElementById("header").innerHTML = `
-    <div class="hdr-item" data-tooltip="${setTooltip(goldTooltip)}">🪙 <b class="hdr-gold-val">${gold()}</b></div>
+    <div class="hdr-item">🪙 <b class="hdr-gold-val">${gold().toLocaleString("tr-TR")}</b></div>
     ${timeInfoHtml}
-    <div class="hdr-item" data-tooltip="${setTooltip(marketTooltip)}" style="margin-left:auto"><span class="hdr-market-timer">🏪 Market: ${marketSeconds}s</span></div>
-    ${queueCount > 0 ? `<div class="hdr-item hdr-queue" data-tooltip="${setTooltip(queueTooltip)}"><span class="hdr-queue-count">📦 ${queueCount}</span></div>` : ""}
+    <div class="hdr-item" style="margin-left:auto"><span class="hdr-market-timer">🏪 Market: ${marketSeconds}s</span></div>
+    ${queueCount > 0 ? `<div class="hdr-item hdr-queue"><span class="hdr-queue-count">📦 ${queueCount}</span></div>` : ""}
     <div class="hdr-item"><button class="new-game-btn" id="new-game-btn">🔄 Yeni Oyun</button></div>
   `;
 
@@ -701,26 +508,9 @@ function renderInventory() {
     const entry = list[i];
     if (!entry) { cells.push(`<div class="cell empty"></div>`); continue; }
     const name = itemDisplayName(entry.itemId);
-    const price = itemSellPrice(entry.itemId, entry.meta);
-    const isSeedLike = entry.category === "tohum" || entry.category === "fidan";
-    const isKaliteli = entry.category === "kaliteli";
-
-    let tooltip = ttTitle(`${itemEmoji(entry.itemId)} ${name}`);
-    tooltip += ttRow("📦", "Miktar:", `${entry.quantity}`);
-    tooltip += ttRow("💰", "Satış:", `${price}🪙`, "gold");
-    if (isSeedLike) {
-      const baseId = entry.itemId.replace(/_tohum$/, "").replace(/_fidan$/, "");
-      const crop = getCrop(baseId);
-      const tree = getTree(baseId);
-      if (crop) tooltip += ttDivider() + cropTooltip(baseId);
-      else if (tree) tooltip += ttDivider() + treeTooltip(baseId);
-      tooltip += ttDivider() + ttHint("Sürükle ve ek");
-    } else if (isKaliteli) {
-      tooltip += ttDivider() + ttHint("4x fiyatına satılır");
-    }
 
     cells.push(`
-      <div class="cell item ${entry.category}" draggable="true" data-item-id="${entry.itemId}" data-tooltip="${setTooltip(tooltip)}">
+      <div class="cell item ${entry.category}" draggable="true" data-item-id="${entry.itemId}">
         <span class="cell-emoji">${itemEmoji(entry.itemId)}</span>
         <span class="qty">${entry.quantity}</span>
         <span class="label"><span class="label-text">${name}</span></span>
@@ -750,12 +540,8 @@ function affordClass(cost, maxed) {
 }
 
 function renderUpgradeRow({ emoji, label, current, max, cost, maxed, action }) {
-  const tooltip = maxed
-    ? ttTitle(`${emoji} ${label}`) + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle(`${emoji} ${label}`) + ttRow("📊", "Durum:", `${current}/${max}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${cost}🪙`, "gold") + ttDivider() + ttHint(`${label} kapasitesini +1 artırır`);
-
   return `
-    <div class="upgrade-row" data-tooltip="${setTooltip(tooltip)}">
+    <div class="upgrade-row">
       <div class="upgrade-info">
         <span class="upgrade-label">${emoji} ${label}</span>
         <span class="upgrade-status">${current}/${max}</span>
@@ -772,17 +558,8 @@ function renderFeatureRow(featureId, cost) {
   const emoji = FEATURE_EMOJIS[featureId] || "🔓";
   const desc = FEATURE_DESCRIPTIONS[featureId] || "";
 
-  const tooltip = [
-    ttTitle(`${emoji} ${name}`),
-    ttRow("📝", "", desc),
-    ttDivider(),
-    ttRow("🪙", "Maliyet:", `${cost}🪙`, "gold"),
-    ttDivider(),
-    ttHint("Satın almak için tıkla"),
-  ].join("");
-
   return `
-    <div class="upgrade-row feature-row" data-tooltip="${setTooltip(tooltip)}">
+    <div class="upgrade-row feature-row">
       <div class="upgrade-info">
         <span class="upgrade-label">${emoji} ${name}</span>
         <span class="upgrade-status">${desc}</span>
@@ -870,19 +647,8 @@ function renderBuildingUpgradeRow(type) {
   const maxed = building.level >= MAX_BUILDING_LEVEL;
   const upgradeCostVal = buildingUpgradeCost(building.level, type);
 
-  const tooltip = [
-    ttTitle(`${def.name}`),
-    ttRow("🐾", "Hayvan:", `${def.animalName}`),
-    ttRow("📊", "Popülasyon:", `${building.population}/${capacity}`),
-    ttRow("📦", "Seviye:", `${building.level}/${MAX_BUILDING_LEVEL}`),
-    ttDivider(),
-    !maxed ? ttRow("🪙", "Geliştirme:", `${upgradeCostVal}🪙`, "gold") : ttHint("Maksimum seviye"),
-    ttDivider(),
-    ttHint("Hayvan almak için Market sekmesini kullan"),
-  ].join("");
-
   return `
-    <div class="building-upgrade-row" data-tooltip="${setTooltip(tooltip)}">
+    <div class="building-upgrade-row">
       <div class="upgrade-info">
         <span class="upgrade-label">${def.name}</span>
         <span class="upgrade-status">${def.animalName}: ${building.population}/${capacity}</span>
@@ -922,28 +688,14 @@ function slotHTML(slot, index, kind) {
 
   if (!slot.unlocked) {
     const cost = kind === "field" ? fieldSlotUnlockCost(unlockedCount) : orchardSlotUnlockCost(unlockedCount);
-    const tooltip = [
-      ttTitle("🔒 Kilitli Slot"),
-      ttRow("🪙", "Maliyet:", `${cost}🪙`, "gold"),
-      ttRow("🔓", "Açık slot:", `${unlockedCount}`),
-    ].join("");
-    return `<div class="slot locked" data-kind="${kind}" data-index="${index}" data-action="unlock" data-tooltip="${setTooltip(tooltip)}">
+    return `<div class="slot locked" data-kind="${kind}" data-index="${index}" data-action="unlock">
       <div class="slot-inner">🔒</div>
       <div class="slot-name">${cost}🪙</div>
     </div>`;
   }
 
   if (!slot.planted) {
-    const speedPct = Math.round(FIELD_LEVEL_SPEED_BONUS * 100 * slot.level);
-    const tooltip = [
-      ttTitle(`${kindName} Slot #${index + 1}`),
-      ttRow("➕", "Durum:", "Boş"),
-      ttDivider(),
-      ttRow("⚡", "Hız:", `+%${speedPct}`),
-      ttDivider(),
-      ttHint(kind === "field" ? "Tohum sürükle" : "Fidan sürükle"),
-    ].join("");
-    return `<div class="slot empty-plantable" data-kind="${kind}" data-index="${index}" data-tooltip="${setTooltip(tooltip)}">
+    return `<div class="slot empty-plantable" data-kind="${kind}" data-index="${index}">
       ${upgradeButtonsHTML(slot, index, kind)}
       <div class="slot-inner">＋</div>
     </div>`;
@@ -952,64 +704,9 @@ function slotHTML(slot, index, kind) {
   const def = dataset.find((d) => d.id === slot.planted.cropId);
   const pct = Math.min(100, Math.round((slot.planted.elapsedSeconds / slot.planted.requiredSeconds) * 100));
   const ready = slot.planted.ready;
-  const cropName = def ? def.name : slot.planted.cropId;
-  const speedPct = Math.round(FIELD_LEVEL_SPEED_BONUS * 100 * slot.level);
-  const remainingSec = Math.max(0, Math.round(slot.planted.requiredSeconds - slot.planted.elapsedSeconds));
-  const remainingMin = Math.floor(remainingSec / 60);
-  const remainSec = remainingSec % 60;
-
   const baseEmoji = itemEmoji(def ? def.id : slot.planted.cropId);
-  const harvestsLeft = slot.planted.harvestsLeft || 0;
-  const maxHarvests = slot.planted.maxHarvests || 0;
-  const harvestInfo = ttRow("🌾", "Kalan Hasat:", `${harvestsLeft}/${maxHarvests}`);
 
-  // Hava durumu bilgisi
-  const weather = getWeather(ctx.state.weather);
-  const weatherName = weather.name;
-  const weatherBonus = weather.growthSpeedMultiplier;
-  const weatherPct = Math.round((weatherBonus - 1) * 100);
-  const weatherInfo = weatherPct !== 0
-    ? ttRow("🌡️", "Hava:", `${weatherName} (${weatherPct > 0 ? '+' : ''}${weatherPct}%)`)
-    : ttRow("🌡️", "Hava:", weatherName);
-
-  // Toplam hız çarpanı
-  const totalMult = (1 + FIELD_LEVEL_SPEED_BONUS * slot.level) * weatherBonus;
-  const totalSpeedPct = Math.round((totalMult - 1) * 100);
-  const totalSpeedInfo = totalSpeedPct !== 0
-    ? ttRow("⚡", "Toplam Hız:", `+${totalSpeedPct}%`)
-    : "";
-
-  let tooltip;
-  if (ready) {
-    tooltip = [
-      ttTitle(`${cropName}`),
-      ttRow("✅", "Durum:", "Hasat hazır!", "green"),
-      harvestInfo,
-      ttDivider(),
-      ttRow("⚡", "Hız:", `+%${speedPct}`),
-      weatherInfo,
-      totalSpeedInfo,
-      ttDivider(),
-      ttHint("Tıklayarak hasat et"),
-    ].join("");
-  } else {
-    const growInfo = getCrop(slot.planted.cropId)
-      ? `${getCrop(slot.planted.cropId).harvestCycle === "recurring" ? "Tekrarlı" : "Tek hasat"}`
-      : getTree(slot.planted.cropId) ? "Tekrarlı" : "";
-    tooltip = [
-      ttTitle(`${cropName}`),
-      ttRow("📊", "Büyüme:", `%${pct}`),
-      ttRow("⏱️", "Kalan:", `${remainingMin}dk ${remainSec}sn`),
-      harvestInfo,
-      ttDivider(),
-      ttRow("⚡", "Hız:", `+%${speedPct}`),
-      weatherInfo,
-      totalSpeedInfo,
-      growInfo ? ttRow("🔄", "", growInfo) : "",
-    ].join("");
-  }
-
-  return `<div class="slot ${ready ? "ready" : "growing"}" data-kind="${kind}" data-index="${index}" data-action="${ready ? "harvest" : ""}" data-tooltip="${setTooltip(tooltip)}">
+  return `<div class="slot ${ready ? "ready" : "growing"}" data-kind="${kind}" data-index="${index}" data-action="${ready ? "harvest" : ""}">
     ${upgradeButtonsHTML(slot, index, kind)}
     <div class="slot-inner">${baseEmoji}</div>
     ${ready ? "" : `<div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>`}
@@ -1019,15 +716,10 @@ function slotHTML(slot, index, kind) {
 
 function upgradeButtonsHTML(slot, index, kind) {
   const lvlMaxed = slot.level >= MAX_FIELD_LEVEL;
-  const speedPct = Math.round(FIELD_LEVEL_SPEED_BONUS * 100 * slot.level);
   const speedCost = kind === "field" ? fieldUpgradeCost(slot.level) : orchardUpgradeCost(slot.level);
 
-  const lvlTooltip = lvlMaxed
-    ? ttTitle("HIZ GELİŞTİR") + ttRow("⚡", "Büyüme Hızı:", `%${speedPct}`, "green") + ttDivider() + ttRow("✅", "", "Maksimum", "green")
-    : ttTitle("HIZ GELİŞTİR") + ttRow("⚡", "Büyüme Hızı:", `%${speedPct}`) + ttDivider() + ttRow("🪙", "Maliyet:", `${speedCost} (GOLD)`, "gold");
-
   return `<div class="slot-upgrades">
-    <button class="mini-btn${gold() < speedCost && !lvlMaxed ? " insufficient-gold" : ""}" data-kind="${kind}" data-index="${index}" data-action="upgradeLevel" ${lvlMaxed ? "disabled" : ""} data-tooltip="${setTooltip(lvlTooltip)}"><svg class="upgrade-icon" viewBox="0 0 12 12" width="18" height="18"><path d="M6 2 L10 7 L8 7 L8 10 L4 10 L4 7 L2 7 Z" fill="currentColor"/></svg>${slot.level}</button>
+    <button class="mini-btn${gold() < speedCost && !lvlMaxed ? " insufficient-gold" : ""}" data-kind="${kind}" data-index="${index}" data-action="upgradeLevel" ${lvlMaxed ? "disabled" : ""}><svg class="upgrade-icon" viewBox="0 0 12 12" width="18" height="18"><path d="M6 2 L10 7 L8 7 L8 10 L4 10 L4 7 L2 7 Z" fill="currentColor"/></svg>${slot.level}</button>
   </div>`;
 }
 
@@ -1045,35 +737,13 @@ function renderBuildingTab() {
   const def = BUILDING_TYPES[type];
   const building = ctx.state.buildings[type];
   const capacity = capacityForLevel(type, building.level);
-  const dailyOutput = building.population > 0 ? Math.floor(building.population / def.baseProductionDays) || 1 : 0;
-
-  const panelTooltip = [
-    ttTitle(`${def.name}`),
-    ttRow("🐾", "Hayvan:", `${def.animalName}`),
-    ttRow("📊", "Popülasyon:", `${building.population}/${capacity}`),
-    ttRow("⏱️", "Üretim:", `${def.baseProductionDays} günde ${building.population} ${itemDisplayName(def.productId)}`),
-    ttDivider(),
-    ttRow("📦", "Ürün:", itemDisplayName(def.productId)),
-    def.secondaryProductId ? ttRow("✨", "Nadiren:", itemDisplayName(def.secondaryProductId)) : "",
-    def.fieldBonusCropIds ? ttDivider() + ttRow("🌾", "Bonus:", def.fieldBonusCropIds.map((id) => itemDisplayName(id)).join(", ")) : "",
-    ttDivider(),
-    ttHint("Ürünleri sürükle → sat zone'a bırak"),
-  ].join("");
 
   const storedProducts = [];
   for (const [productId, qty] of Object.entries(building.stored)) {
     if (qty > 0) {
       const name = itemDisplayName(productId);
-      const price = itemSellPrice(productId);
-      const storedTooltip = [
-        ttTitle(`${itemEmoji(productId)} ${name}`),
-        ttRow("📦", "Miktar:", `${qty}`),
-        ttRow("💰", "Satış:", `${price}🪙`, "gold"),
-        ttDivider(),
-        ttHint("Sürükle, bırak ve sat"),
-      ].join("");
       storedProducts.push(
-        `<div class="building-product-cell" draggable="true" data-product-id="${productId}" data-source="building" data-tooltip="${setTooltip(storedTooltip)}">
+        `<div class="building-product-cell" draggable="true" data-product-id="${productId}" data-source="building">
           <span class="building-product-emoji">${itemEmoji(productId)}</span>
           <span class="building-product-qty">${qty}</span>
         </div>`
@@ -1082,7 +752,7 @@ function renderBuildingTab() {
   }
 
   document.getElementById("building-content").innerHTML = `
-    <div class="building-panel" data-tooltip="${setTooltip(panelTooltip)}">
+    <div class="building-panel">
       <div class="building-panel-info">
         <h3>Seviye ${building.level}</h3>
         <p>${def.animalName}: ${building.population} / ${capacity}</p>
@@ -1159,24 +829,6 @@ function marketHTML() {
 
       const diff = unitPrice - listing.basePrice;
 
-      const tooltip = soldOut
-        ? [
-          ttTitle(`${name}`),
-          ttRow("", "Tür:", typeLabel),
-          ttDivider(),
-          ttHint("Tükendi — bu döngüde gelmeyecek"),
-        ].join("")
-        : [
-          ttTitle(`${name}`),
-          ttRow("", "Tür:", typeLabel),
-          cropDetail ? ttRow("📅", "", cropDetail) : "",
-          ttDivider(),
-          ttRow("💰", "Fiyat:", `${unitPrice}🪙`, "gold"),
-          calendarActive ? ttRow("📊", "Taban:", `${listing.basePrice}🪙`, "gold") : "",
-          calendarActive ? (diff < 0 ? ttRow("📈", "Kar:", `+${Math.abs(diff)}🪙`, "green") : diff > 0 ? ttRow("📉", "Zarar:", `-${diff}🪙`, "red") : ttRow("", "", "Fiyat aynı")) : "",
-          capacityFull ? ttDivider() + ttHint("⚠️ Kapasite dolu!") : "",
-        ].join("");
-
       const soldOutClass = soldOut ? " sold-out" : "";
       const icon = isAnimal ? listing.emoji : itemEmoji(listing.seedId);
 
@@ -1197,7 +849,7 @@ function marketHTML() {
 
       // Hayvanlar: sadece 1x butonu
       if (isAnimal) {
-        return `${categoryHeader}<div class="market-row${soldOutClass}" data-tooltip="${setTooltip(tooltip)}">
+        return `${categoryHeader}<div class="market-row${soldOutClass}">
           <div class="mr-left">
             <span class="mr-icon">${icon}</span>
             <div class="mr-info">
@@ -1215,7 +867,7 @@ function marketHTML() {
       }
 
       // Tohum/Fidan: 1x + toplu alım
-      return `${categoryHeader}<div class="market-row${soldOutClass}" data-tooltip="${setTooltip(tooltip)}">
+      return `${categoryHeader}<div class="market-row${soldOutClass}">
         <div class="mr-left">
           <span class="mr-icon">${icon}</span>
           <div class="mr-info">
@@ -1265,44 +917,11 @@ function craftingHTML() {
       const outputPrice = itemSellPrice(r.output.id, {});
       const profit = outputPrice - r.inputs.reduce((sum, inp) => sum + itemSellPrice(inp.id, {}) * inp.qty, 0);
 
-      const inputsDetail = r.inputs.map((inp) => {
-        const have = ctx.state.inventory.items[inp.id]?.quantity || 0;
-        const status = have >= inp.qty ? "green" : "red";
-        return ttRow(itemEmoji(inp.id), `${inp.qty}x ${itemDisplayName(inp.id)}:`, `${have}/${inp.qty}`, status);
-      }).join("");
-
       const profitStr = profit >= 0 ? `+${profit}` : `${profit}`;
-
-      const usedIn = RECIPES.filter((other) => other.inputs.some((inp) => inp.id === r.output.id));
-      const usedInText = usedIn.length > 0
-        ? usedIn.map((other) => `${itemEmoji(other.output.id)} ${other.name}`).join(", ")
-        : null;
-
-      const chainInputs = r.inputs.filter((inp) => RECIPES.some((x) => x.output.id === inp.id));
-      const chainText = chainInputs.length > 0
-        ? chainInputs.map((inp) => {
-            const src = RECIPES.find((x) => x.output.id === inp.id);
-            return src ? `${itemEmoji(src.output.id)} ${src.name}` : inp.id;
-          }).join(", ")
-        : null;
-
-      const tooltip = [
-        ttTitle(`${itemEmoji(r.output.id)} ${r.name}`),
-        ttDivider(),
-        inputsDetail,
-        chainText ? ttDivider() + ttRow("🔗", "Zincir:", chainText, "blue") : "",
-        ttDivider(),
-        usedInText ? ttRow("📦", "Kullanıldığı:", usedInText) : ttRow("📦", "Kullanıldığı:", "Doğrudan satış"),
-        ttDivider(),
-        ttRow("💰", "Satış:", `${outputPrice}🪙`, "gold"),
-        ttRow("📊", "Kâr:", `${profitStr}🪙`, profit >= 0 ? "green" : "red"),
-        ttDivider(),
-        ttHint(learned ? "Öğrenildi — toplu üretim açık" : "İlk üretimde öğrenilir"),
-      ].join("");
 
       const tierClass = `recipe-tier-${r.tier}`;
 
-      html += `<div class="recipe-card ${craftable ? "" : "faded"} ${tierClass}" data-tooltip="${setTooltip(tooltip)}" data-recipe-id="${r.id}">
+      html += `<div class="recipe-card ${craftable ? "" : "faded"} ${tierClass}" data-recipe-id="${r.id}">
         <div class="recipe-title">${itemEmoji(r.output.id)} ${r.name} ${learned ? "⭐" : ""}</div>
         <div class="recipe-actions">
           <button data-action="craft" data-recipe="${r.id}" data-times="1" ${craftable ? "" : "disabled"}>Üret</button>
@@ -1314,52 +933,6 @@ function craftingHTML() {
 
   html += '</div>';
   return html;
-}
-
-// ---------------------------------------------------------------------------
-// GÖREVLER
-// ---------------------------------------------------------------------------
-function questsHTML() {
-  ensureQuestPool(ctx.state);
-
-  const questEmoji = { produce: "🏭", sell: "💰" };
-  const questLabel = { produce: "Üret", sell: "Sat" };
-
-  const cards = ctx.state.quests.map((q) => {
-    const pct = Math.min(100, Math.round((q.progress / q.requiredQty) * 100));
-    const done = q.progress >= q.requiredQty;
-    const itemName = itemDisplayName(q.itemId);
-    const itemIcon = itemEmoji(q.itemId);
-
-    const tooltip = [
-      ttTitle(`${questEmoji[q.type] || "🎯"} Görev`),
-      ttRow("", "Tür:", `${questLabel[q.type] || q.type}`),
-      ttRow(itemIcon, "Ürün:", itemName),
-      ttRow("📊", "İlerleme:", `${q.progress}/${q.requiredQty}`, done ? "green" : ""),
-      ttDivider(),
-      ttRow("🪙", "Ödül:", `${q.reward.gold}🪙`, "gold"),
-    ].join("");
-
-    return `
-      <div class="quest-card${done ? " ready" : ""}" data-tooltip="${setTooltip(tooltip)}">
-        <div class="quest-header">
-          <span class="quest-icon">${questEmoji[q.type] || "🎯"}</span>
-          <span class="quest-title">${q.requiredQty}x ${itemName} ${questLabel[q.type] || ""}</span>
-        </div>
-        <div class="quest-progress">
-          <div class="quest-progress-fill" style="width:${pct}%"></div>
-        </div>
-        <div class="quest-footer">
-          <span class="quest-count">${q.progress}/${q.requiredQty}</span>
-          <span class="quest-reward">🪙 ${q.reward.gold}</span>
-          ${done
-            ? `<button class="quest-claim-btn" data-action="claimQuest" data-quest="${q.questId}">Ödülü Al</button>`
-            : ""}
-        </div>
-      </div>`;
-  }).join("");
-
-  return `<div class="panel-header">Görevler</div><div class="quest-grid">${cards || '<div class="quest-empty">Aktif görev yok</div>'}</div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1540,7 +1113,6 @@ function wireStaticEvents() {
         removeAnimalProduct(ctx.state, itemId, qty);
         const total = price * qty;
         addGold(total);
-        registerProgress(ctx.state, "sell", itemId, qty);
         ctx.log(`${itemEmoji(itemId)} ${qty} adet ${itemDisplayName(itemId)} satıldı, +${total}🪙`, "trade");
       } else {
         const itemEntry = ctx.state.inventory.items[itemId];
@@ -1551,7 +1123,6 @@ function wireStaticEvents() {
         const price = itemSellPrice(itemId, itemMeta);
         const result = sellItem(ctx.state, itemId, qty, price, addGold, itemMeta);
         if (result.success) {
-          registerProgress(ctx.state, "sell", itemId, qty);
           ctx.log(`${itemEmoji(itemId)} ${qty} adet ${itemDisplayName(itemId)} satıldı, +${result.total}🪙`, "trade");
         } else {
           ctx.log(`Satış başarısız: ${reasonText(result.reason)}`, "error");
@@ -1574,7 +1145,6 @@ function handlePlotClick(e) {
     const result = kind === "field" ? harvestSlot(ctx.state, index) : harvestOrchardSlot(ctx.state, index);
     if (result.success) {
       const cropId = result.cropId || result.treeId;
-      registerProgress(ctx.state, "sell", cropId, 1);
       ctx.log(`Hasat: ${itemEmoji(cropId)} ${itemDisplayName(cropId)}${result.rarity !== "normal" ? ` (${result.rarity}!)` : ""}`, "success");
     }
   } else if (action === "unlock") {
@@ -1658,21 +1228,12 @@ function handleRightPanelAction(e) {
     const times = Number(btn.dataset.times);
     const result = craftRecipe(ctx.state, recipeId, times);
     if (result.success) {
-      registerProgress(ctx.state, "produce", result.outputId, result.outputQty);
       ctx.log(`${itemEmoji(result.outputId)} Üretildi: ${itemDisplayName(result.outputId)} ${result.outputQty} adet${result.firstCraft ? " (tarif öğrenildi)" : ""}`, "trade");
       if (result.tierUnlocked) {
         ctx.log(`Tier ${result.unlockedTier} tarifleri açıldı! Yeni tarifler Üretim sekmesinde`, "success");
       }
     } else {
       ctx.log(`Üretilemedi: ${reasonText(result.reason)}`, "error");
-    }
-  } else if (action === "claimQuest") {
-    const questId = btn.dataset.quest;
-    const result = claimQuest(ctx.state, questId, addGold);
-    if (result.success) {
-      ctx.log(`Görev tamamlandı! +${result.reward.gold}🪙`, "success");
-    } else {
-      ctx.log(`Görev alınamadı: ${reasonText(result.reason)}`, "error");
     }
   } else {
     handleUpgradeAction(e);

@@ -7,10 +7,8 @@ import { tickOrchardGrowth } from "./systems/orchard.js";
 import { tickBuildings } from "./systems/buildings.js";
 import { tickMarket, initMarketTimestamp, getMarketTimestamp } from "./systems/market.js";
 import { initUI, render, tickUpdate, checkHints } from "./ui.js";
-import { ensureQuestPool } from "./systems/quests.js";
 import { initGame, saveGame, startAutoSave, clearSave } from "./systems/save.js";
 import { getCalendarTradeInfo } from "./systems/calendarTrade.js";
-
 const TICK_MS = 1000;
 
 const SEASON_EFFECT = {
@@ -84,15 +82,6 @@ function main() {
     while (logEl.children.length > 50) logEl.removeChild(logEl.lastChild);
   }
 
-  // --- Tooltip sistemi ---
-  const ttEl = document.getElementById("game-tooltip");
-  const ttInner = ttEl.querySelector(".tt-inner");
-  const ttStore = new Map();
-  let ttIdCounter = 0;
-
-  window._ttStore = ttStore;
-  window._ttNextId = () => `tt${ttIdCounter++}`;
-
   initUI(state, log, () => {
     clearSave();
     location.reload();
@@ -103,11 +92,8 @@ function main() {
   initMarketTimestamp(state.market.lastRefreshTimestamp, state);
 
   render();
-  ensureQuestPool(state);
-
   if (isNew) {
     log("Çiftliğe hoş geldin!", "info");
-    log("Görevler sekmesinden görevlerini görebilirsin.", "info");
     log("İpucu: Tohumları envanterden tarlaya sürükle.", "info");
   } else {
     log("Kayıtlı oyun yüklendi!", "info");
@@ -180,66 +166,6 @@ function main() {
     tickUpdate();
   }, TICK_MS);
 
-  let currentTooltipTarget = null;
-  window._currentTooltipTarget = null;
-
-  function showTooltip(target) {
-    const id = target.getAttribute("data-tooltip");
-    const html = ttStore.get(id);
-    if (!html) return;
-    ttInner.innerHTML = html;
-    ttEl.classList.add("visible");
-    positionTooltip(target);
-    currentTooltipTarget = target;
-    window._currentTooltipTarget = target;
-  }
-
-  function hideTooltip() {
-    ttEl.classList.remove("visible");
-    currentTooltipTarget = null;
-    window._currentTooltipTarget = null;
-  }
-
-  document.addEventListener("mouseover", (e) => {
-    const target = e.target.closest("[data-tooltip]");
-    if (!target) {
-      hideTooltip();
-      return;
-    }
-    if (target === currentTooltipTarget) return;
-    showTooltip(target);
-  });
-
-  document.addEventListener("mouseout", (e) => {
-    const target = e.target.closest("[data-tooltip]");
-    if (!target) { hideTooltip(); return; }
-    const related = e.relatedTarget;
-    if (!related || !target.contains(related)) {
-      hideTooltip();
-    }
-  });
-
-  document.addEventListener("mousedown", () => hideTooltip());
-
-  document.addEventListener("dragstart", () => hideTooltip(), true);
-
-  function positionTooltip(target) {
-    const rect = target.getBoundingClientRect();
-    const ttRect = ttEl.getBoundingClientRect();
-    const gap = 6;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    let left = rect.left;
-    if (left + ttRect.width > vw - 4) left = vw - ttRect.width - 4;
-
-    let top = rect.bottom + gap;
-    if (top + ttRect.height > vh - 4) top = rect.top - ttRect.height - gap;
-    if (top < 4) top = 4;
-
-    ttEl.style.top = top + "px";
-    ttEl.style.left = left + "px";
-  }
   const handle = document.getElementById("log-resize-handle");
   const panel = document.getElementById("log-panel");
   let dragging = false, startY = 0, startH = 0;

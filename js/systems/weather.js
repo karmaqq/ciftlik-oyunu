@@ -2,11 +2,11 @@
 // Her in-game gün başında (day değiştiğinde) hava koşulu yeniden belirlenir.
 
 export const WEATHER_TYPES = {
-  normal: { id: "normal", name: "Normal", growthSpeedMultiplier: 1, mergeFailChance: 0, tradeLossChance: 0, rarityChance: {} },
-  yagmurlu: { id: "yagmurlu", name: "Yağmurlu", growthSpeedMultiplier: 1.15, mergeFailChance: 0, tradeLossChance: 0, rarityChance: { nadir: 0.05 } },
-  kurak: { id: "kurak", name: "Kurak", growthSpeedMultiplier: 0.7, mergeFailChance: 0.1, tradeLossChance: 0.05, rarityChance: {} },
-  firtina: { id: "firtina", name: "Fırtına", growthSpeedMultiplier: 0.6, mergeFailChance: 0.2, tradeLossChance: 0.1, rarityChance: {} },
-  gokkusagi: { id: "gokkusagi", name: "Gökkuşağı (Özel)", growthSpeedMultiplier: 1.1, mergeFailChance: 0, tradeLossChance: 0, rarityChance: { nadir: 0.2, legendary: 0.05, gizemli: 0.01 } },
+  normal: { id: "normal", name: "Normal", growthSpeedMultiplier: 1, tradeLossChance: 0, rarityChance: {} },
+  yagmurlu: { id: "yagmurlu", name: "Yağmurlu", growthSpeedMultiplier: 1.15, tradeLossChance: 0, rarityChance: { nadir: 0.05 } },
+  kurak: { id: "kurak", name: "Kurak", growthSpeedMultiplier: 0.7, tradeLossChance: 0.05, rarityChance: {} },
+  firtina: { id: "firtina", name: "Fırtına", growthSpeedMultiplier: 0.6, tradeLossChance: 0.1, rarityChance: {} },
+  gokkusagi: { id: "gokkusagi", name: "Gökkuşağı (Özel)", growthSpeedMultiplier: 1.1, tradeLossChance: 0, rarityChance: { nadir: 0.2, legendary: 0.05, gizemli: 0.01 } },
 };
 
 // Ağırlıklı rastgele seçim: normal koşullar daha sık, özel/kötü koşullar seyrek.

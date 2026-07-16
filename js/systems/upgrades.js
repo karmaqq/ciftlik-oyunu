@@ -30,26 +30,26 @@ export function upgradeOrchardSlot(state, slotIndex, deductGold, playerGold) {
   return upgradeSlotLevel(slot, orchardUpgradeCost, MAX_FIELD_LEVEL, deductGold, playerGold);
 }
 
-export const FIELD_SLOT_UNLOCK_BASE_COST = 80;
+export const FIELD_SLOT_UNLOCK_BASE_COST = 15;
 export function fieldSlotUnlockCost(unlockedCount) {
-  return Math.round(FIELD_SLOT_UNLOCK_BASE_COST * Math.pow(1.25, unlockedCount - FIELD_START_UNLOCKED));
+  return Math.round(FIELD_SLOT_UNLOCK_BASE_COST * Math.pow(1.2, unlockedCount - FIELD_START_UNLOCKED));
 }
 
-export const ORCHARD_SLOT_UNLOCK_BASE_COST = 100;
+export const ORCHARD_SLOT_UNLOCK_BASE_COST = 20;
 export function orchardSlotUnlockCost(unlockedCount) {
-  return Math.round(ORCHARD_SLOT_UNLOCK_BASE_COST * Math.pow(1.3, unlockedCount - ORCHARD_START_UNLOCKED));
+  return Math.round(ORCHARD_SLOT_UNLOCK_BASE_COST * Math.pow(1.25, unlockedCount - ORCHARD_START_UNLOCKED));
 }
 
 // ---- Yeni Geliştirme Fonksiyonları ----
 
-export const INVENTORY_SLOT_BASE_COST = 80;
+export const INVENTORY_SLOT_BASE_COST = 15;
 export function inventorySlotCost(currentCount) {
-  return Math.round(INVENTORY_SLOT_BASE_COST * Math.pow(1.3, currentCount - 5));
+  return Math.round(INVENTORY_SLOT_BASE_COST * Math.pow(1.2, currentCount - 5));
 }
 
-export const MARKET_SLOT_BASE_COST = 500;
+export const MARKET_SLOT_BASE_COST = 80;
 export function marketSlotCost(category, currentLevel) {
-  return Math.round(MARKET_SLOT_BASE_COST * Math.pow(2.5, currentLevel));
+  return Math.round(MARKET_SLOT_BASE_COST * Math.pow(2.0, currentLevel));
 }
 
 export function upgradeInventorySlots(state, deductGold, playerGold) {
@@ -100,12 +100,12 @@ export function upgradeBuildingFromPanel(state, buildingType, deductGold, player
 // ---- Özellik (Feature) Satın Alma ----
 
 export const FEATURE_COSTS = {
-  calendar: 100,
-  quickSell: 75,
-  orchard: 150,
-  hive: 200,
-  coop: 250,
-  barn: 400,
+  calendar: 50,
+  quickSell: 25,
+  orchard: 100,
+  hive: 150,
+  coop: 200,
+  barn: 350,
 };
 
 export const FEATURE_NAMES = {

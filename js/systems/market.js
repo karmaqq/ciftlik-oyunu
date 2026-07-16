@@ -6,7 +6,7 @@ import { getWeather } from "./weather.js";
 import { BUILDING_TYPES, capacityForLevel } from "../data/animals.js";
 import { getCalendarBuyMultiplier, getCalendarSellMultiplier } from "./calendarTrade.js";
 
-export const MARKET_REFRESH_SECONDS = 120;
+export const MARKET_REFRESH_SECONDS = 70;
 const BULK_DISCOUNT = 0.10;
 
 let lastRefreshTimestamp = Date.now();
@@ -24,9 +24,9 @@ function hasItemInInventory(state, itemId) {
 }
 
 const MARKET_ANIMALS = [
-  { buildingType: "hive", label: "Arı", emoji: "🐝", basePrice: 6 },
-  { buildingType: "coop", label: "Tavuk", emoji: "🐔", basePrice: 10 },
-  { buildingType: "barn", label: "İnek", emoji: "🐄", basePrice: 40 },
+  { buildingType: "hive", label: "Arı", emoji: "🐝", basePrice: 10 },
+  { buildingType: "coop", label: "Tavuk", emoji: "🐔", basePrice: 20 },
+  { buildingType: "barn", label: "İnek", emoji: "🐄", basePrice: 60 },
 ];
 
 function randomInt(min, max) {
@@ -45,11 +45,11 @@ export function generateMarketCycle(state) {
   function rollPriceMultiplier() {
     if (!calendarActive) return 1;
     const roll = Math.random();
-    if (roll < 0.05) return 0;         // %5 bedava
-    if (roll < 0.40) return 0.01 + Math.random() * 0.98; // %35 indirim (0.01–0.99)
-    if (roll < 0.50) return 1;         // %10 normal fiyat
-    if (roll < 0.95) return 1.01 + Math.random() * 0.98; // %45 pahalı (1.01–1.99)
-    return 2;                           // %5 tam pahalı
+    if (roll < 0.02) return 0;                                              // %2 bedava (%100 indirim)
+    if (roll < 0.05) return 2;                                              // %3 tam pahalı (%100 zam)
+    if (roll < 0.40) return 0.01 + Math.random() * 0.98;                    // %35 indirimli (0.01x - 0.99x)
+    if (roll < 0.75) return 1.01 + Math.random() * 0.98;                    // %35 zamlı (1.01x - 1.99x)
+    return 1;                                                                // %25 aynı fiyat
   }
 
   const seedPool = CROPS.map((c) => ({ itemId: c.id, seedId: `${c.id}_tohum`, basePrice: c.buyPrice }));
@@ -148,17 +148,8 @@ export function initMarketTimestamp(savedTimestamp, state) {
     lastRefreshTimestamp = Date.now();
   }
 
-  const now = Date.now();
-  const elapsed = Math.floor((now - lastRefreshTimestamp) / 1000);
-
-  if (elapsed >= MARKET_REFRESH_SECONDS || state.market.listings.length === 0) {
-    lastRefreshTimestamp = now;
-    state.market.lastRefreshTimestamp = now;
-    state.market.listings = generateMarketCycle(state);
-    state.market.secondsSinceRefresh = 0;
-  } else {
-    state.market.secondsSinceRefresh = elapsed;
-  }
+  state.market.lastRefreshTimestamp = lastRefreshTimestamp;
+  state.market.secondsSinceRefresh = Math.floor((Date.now() - lastRefreshTimestamp) / 1000);
 }
 
 export function getMarketTimestamp() {

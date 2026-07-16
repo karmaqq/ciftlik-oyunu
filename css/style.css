@@ -73,7 +73,6 @@
   /* Z-index */
   --z-base: 1;
   --z-log: 50;
-  --z-tooltip: 1000;
 
   font-size: 14px;
 }
@@ -540,12 +539,6 @@ small {
 .cell.fidan {
   background: #1a1820;
   border-color: #302e44;
-}
-
-.cell.kaliteli {
-  background: #3a2a10;
-  border-color: var(--gold);
-  box-shadow: var(--shadow-glow-gold);
 }
 
 /* ---------- 9. TARLA / BAHÇE ---------- */
@@ -1342,118 +1335,7 @@ small {
   cursor: not-allowed;
 }
 
-/* ---------- 15. GÖREVLER ---------- */
-.quest-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm);
-}
-
-.quest-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  transition: all var(--transition-fast);
-}
-
-.quest-card:hover {
-  border-color: var(--border-default);
-  background: var(--bg-elevated);
-}
-
-.quest-card.ready {
-  border-color: var(--gold);
-  box-shadow: var(--shadow-glow-gold);
-}
-
-.quest-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.quest-icon {
-  font-size: var(--font-lg);
-  flex-shrink: 0;
-}
-
-.quest-title {
-  font-size: var(--font-md);
-  font-weight: 700;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.quest-progress {
-  width: 100%;
-  height: 6px;
-  background: var(--bg-deep);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-
-.quest-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent-muted), var(--accent));
-  border-radius: var(--radius-full);
-  transition: width var(--transition-normal);
-}
-
-.quest-card.ready .quest-progress-fill {
-  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
-}
-
-.quest-footer {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.quest-count {
-  font-size: var(--font-sm);
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.quest-reward {
-  font-size: var(--font-sm);
-  color: var(--gold);
-  font-weight: 700;
-}
-
-.quest-claim-btn {
-  margin-left: auto;
-  font-size: var(--font-sm);
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--gold);
-  color: var(--text-inverse);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-weight: 700;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.quest-claim-btn:hover {
-  background: var(--gold-dim);
-  transform: scale(1.03);
-}
-
-.quest-empty {
-  text-align: center;
-  color: var(--text-muted);
-  padding: var(--space-xl);
-  font-style: italic;
-}
-
-/* ---------- 16. GÜNLÜK ---------- */
+/* ---------- 15. GÜNLÜK ---------- */
 #log-panel {
   position: fixed;
   bottom: 0;
@@ -1601,89 +1483,7 @@ button.active {
   font-weight: 700;
 }
 
-/* ---------- 18. TOOLTIP ---------- */
-#game-tooltip {
-  position: fixed;
-  z-index: var(--z-tooltip);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-  max-width: 260px;
-  min-width: 120px;
-}
-
-#game-tooltip.visible {
-  opacity: 1;
-}
-
-#game-tooltip .tt-inner {
-  background: var(--bg-deep);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: var(--space-sm) var(--space-md);
-  box-shadow: var(--shadow-lg);
-  font-size: var(--font-xs);
-  line-height: 1.5;
-  white-space: pre-line;
-}
-
-#game-tooltip .tt-title {
-  font-weight: 700;
-  font-size: var(--font-sm);
-  color: var(--text-primary);
-  margin-bottom: 2px;
-}
-
-#game-tooltip .tt-divider {
-  border: none;
-  border-top: 1px solid var(--border-subtle);
-  margin: 4px 0;
-}
-
-#game-tooltip .tt-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  color: var(--text-secondary);
-}
-
-#game-tooltip .tt-row .tt-label {
-  color: var(--text-muted);
-}
-
-#game-tooltip .tt-row .tt-value {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-#game-tooltip .tt-row .tt-value.gold {
-  color: var(--gold);
-}
-
-#game-tooltip .tt-row .tt-value.green {
-  color: #4caf50;
-}
-
-#game-tooltip .tt-row .tt-value.red {
-  color: #d04838;
-}
-
-#game-tooltip .tt-row .tt-value.blue {
-  color: #4890d0;
-}
-
-#game-tooltip .tt-hint {
-  color: var(--text-muted);
-  font-style: italic;
-  font-size: 11px;
-  margin-top: 2px;
-}
-
-[data-tooltip] {
-  cursor: default;
-}
-
-/* ---------- 19. ANİMASYONLAR ---------- */
+/* ---------- 18. ANİMASYONLAR ---------- */
 @keyframes pulse-ready {
   0%,
   100% {

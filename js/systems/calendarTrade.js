@@ -68,7 +68,7 @@ export function getCalendarBuyMultiplier(state, category) {
   // Hava durumu etkisi
   multiplier *= WEATHER_BUY_MULTIPLIER[weather.id] || 1.0;
 
-  return Math.round(multiplier * 100) / 100;
+  return Math.round(multiplier);
 }
 
 /**
@@ -93,11 +93,11 @@ export function getCalendarSellMultiplier(state, rarity) {
     multiplier *= WEATHER_RARITY_BONUS[weather.id];
   }
 
-  return Math.round(multiplier * 100) / 100;
+  return Math.round(multiplier);
 }
 
 /**
- * Takvim Ticaret bilgi tooltip'ini oluşturur.
+ * Takvim Ticaret bilgisini oluşturur.
  * @param {object} state - Oyun durumu
  * @returns {object} { season, seasonEffect, weather, buyMultiplier, sellMultiplier }
  */

@@ -40,9 +40,9 @@ export function buyAnimal(state, buildingType, deductGold, playerGold) {
 }
 
 const UPGRADE_COST = {
-  hive: { base: 50,  mult: 1.6 },
-  coop: { base: 80,  mult: 1.5 },
-  barn: { base: 120, mult: 1.5 },
+  hive: { base: 50,  mult: 1.4 },
+  coop: { base: 80,  mult: 1.4 },
+  barn: { base: 120, mult: 1.4 },
 };
 
 export function buildingUpgradeCost(currentLevel, buildingType) {

@@ -11,7 +11,6 @@ const CRAFTED_IDS = new Set(RECIPES.map((r) => r.output.id));
 export function categorizeItem(itemId) {
   if (itemId.endsWith("_tohum")) return "tohum";
   if (itemId.endsWith("_fidan")) return "fidan";
-  if (itemId.endsWith("_kaliteli")) return "kaliteli";
   if (CROP_IDS.has(itemId) || TREE_IDS.has(itemId)) return "hasat";
   if (["bal", "yumurta", "sut", "inek_eti", "tavuk_eti"].includes(itemId)) return "hayvan_urunu";
   if (CRAFTED_IDS.has(itemId)) return "uretim";

@@ -2,21 +2,21 @@
 // Zaman sistemi: 1 gün = 12 gerçek saniye, 1 yıl = 365 gün = 12 ay.
 // Mevsimler aylara bağlı: Kış(Oca-Şub-Mar), İlkbahar(Nis-May-Haz), Yaz(Tem-Ağu-Eyl), Sonbahar(Eki-Kas-Ara).
 
-export const DAY_SECONDS = 12;
+export const DAY_SECONDS = 10;
 
 export const MONTHS = [
   { name: "Ocak",    days: 31, season: "kış" },
   { name: "Şubat",   days: 28, season: "kış" },
-  { name: "Mart",    days: 31, season: "kış" },
+  { name: "Mart",    days: 31, season: "ilkbahar" },
   { name: "Nisan",   days: 30, season: "ilkbahar" },
   { name: "Mayıs",   days: 31, season: "ilkbahar" },
-  { name: "Haziran", days: 30, season: "ilkbahar" },
+  { name: "Haziran", days: 30, season: "yaz" },
   { name: "Temmuz",  days: 31, season: "yaz" },
   { name: "Ağustos", days: 31, season: "yaz" },
-  { name: "Eylül",   days: 30, season: "yaz" },
+  { name: "Eylül",   days: 30, season: "sonbahar" },
   { name: "Ekim",    days: 31, season: "sonbahar" },
   { name: "Kasım",   days: 30, season: "sonbahar" },
-  { name: "Aralık",  days: 31, season: "sonbahar" },
+  { name: "Aralık",  days: 31, season: "kış" },
 ];
 
 export const SEASONS = ["ilkbahar", "yaz", "sonbahar", "kış"];

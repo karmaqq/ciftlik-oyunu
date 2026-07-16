@@ -71,8 +71,6 @@ export function createInitialState() {
     unlockedTiers: [1],
     hintsShown: {},
 
-    quests: [],
-
     features: {
       calendar: false,
       quickSell: false,
