@@ -1,46 +1,66 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                  Takvim ticaret mekaniği                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/calendarTrade.js
 // Takvim Ticaret mekaniği: Mevsim ve hava durumuna göre fiyat çarpanları.
 // sadece state.features.calendar true olduğunda aktif.
 
-import { currentSeason, MONTHS } from "./time.js";
+import { currentSeason } from "./time.js";
 import { getWeather } from "./weather.js";
 
 // Mevsimsel fiyat çarpanları (satış fiyatı için)
 const SEASON_SELL_MULTIPLIER = {
-  ilkbahar: 1.05,   // +%
-  yaz: 1.10,        // +%
-  sonbahar: 0.90,   // -%
-  kış: 0.80,        // -%
+  // +%5 satış zamı
+  ilkbahar: 1.05,
+  // +%10 satış zamı
+  yaz: 1.10,
+  // -%10 satış indirimi
+  sonbahar: 0.90,
+  // -%20 satış indirimi
+  kış: 0.80,
 };
 
 // Mevsimsel alış fiyat çarpanları (tohum/fidan için)
 const SEASON_BUY_MULTIPLIER = {
-  ilkbahar: 0.85,   // Tohumlar ucuz (ekim zamanı)
-  yaz: 1.05,        // Normal + az zam
-  sonbahar: 1.10,   // Hasat zamanı pahalı
-  kış: 1.20,        // Kış zamlı
+  // Tohumlar ucuz (ekim zamanı)
+  ilkbahar: 0.85,
+  // Normal + az zam
+  yaz: 1.05,
+  // Hasat zamanı pahalı
+  sonbahar: 1.10,
+  // Kış zamlı
+  kış: 1.20,
 };
 
 // Mevsimsel fidan fiyat çarpanları
 const SEASON_SAPLING_MULTIPLIER = {
-  ilkbahar: 1.10,   // Fidanlar pahalı (talep yüksek)
-  yaz: 0.90,        // Fidanlar ucuz
-  sonbahar: 1.05,   // Normal
-  kış: 1.15,        // Kış zamlı
+  // Fidanlar pahalı (talep yüksek)
+  ilkbahar: 1.10,
+  // Fidanlar ucuz
+  yaz: 0.90,
+  // Normal
+  sonbahar: 1.05,
+  // Kış zamlı
+  kış: 1.15,
 };
 
 // Hava durumu ek çarpanları
 const WEATHER_BUY_MULTIPLIER = {
   normal: 1.0,
-  yagmurlu: 0.95,   // -%5 genel ucuzluk
-  kurak: 1.10,      // +%10 genel zam
-  firtina: 1.20,    // +%20 genel zam
-  gokkusagi: 0.85,  // -%15 genel ucuzluk (özel gün)
+  // -%5 genel ucuzluk
+  yagmurlu: 0.95,
+  // +%10 genel zam
+  kurak: 1.10,
+  // +%20 genel zam
+  firtina: 1.20,
+  // -%15 genel ucuzluk (özel gün)
+  gokkusagi: 0.85,
 };
 
 // Nadir ürünler için ekstra çarpan
 const WEATHER_RARITY_BONUS = {
-  gokkusagi: 0.80,  // Nadir ürünlerde -%20
+  // Nadir ürünlerde -%20
+  gokkusagi: 0.80,
 };
 
 /**
@@ -49,6 +69,7 @@ const WEATHER_RARITY_BONUS = {
  * @param {string} category - "seed" | "sapling" | "animal"
  * @returns {number} Fiyat çarpanı (1.0 = normal)
  */
+/* ─────────────────── Takvim satın alma çarpanı ─────────────────── */
 export function getCalendarBuyMultiplier(state, category) {
   if (!state.features || !state.features.calendar) return 1.0;
 
@@ -77,6 +98,7 @@ export function getCalendarBuyMultiplier(state, category) {
  * @param {string} rarity - "normal" | "nadir" | "efsanevi" | "gizemli"
  * @returns {number} Fiyat çarpanı (1.0 = normal)
  */
+/* ─────────────────── Takvim satış çarpanı ─────────────────── */
 export function getCalendarSellMultiplier(state, rarity) {
   if (!state.features || !state.features.calendar) return 1.0;
 
@@ -101,6 +123,7 @@ export function getCalendarSellMultiplier(state, rarity) {
  * @param {object} state - Oyun durumu
  * @returns {object} { season, seasonEffect, weather, buyMultiplier, sellMultiplier }
  */
+/* ─────────────────── Takvim ticaret bilgisi ─────────────────── */
 export function getCalendarTradeInfo(state) {
   if (!state.features || !state.features.calendar) {
     return { active: false };
@@ -123,7 +146,7 @@ export function getCalendarTradeInfo(state) {
     yagmurlu: "Genel -%5 indirim",
     kurak: "Genel +%10 zam",
     firtina: "Genel +%20 zam, yüksek risk",
-    gokkusagi: "Genel -%15 indirim, nadir ürünlerde额外 indirim",
+    gokkusagi: "Genel -%15 indirim, nadir ürünlerde ekstra indirim",
   };
 
   return {

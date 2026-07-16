@@ -1,3 +1,6 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                 Envanter filtreleme ve sıralama                           */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/inventory.js
 import { CROPS } from "../data/crops.js";
 import { TREES } from "../data/trees.js";
@@ -8,6 +11,7 @@ const CROP_IDS = new Set(CROPS.map((c) => c.id));
 const TREE_IDS = new Set(TREES.map((t) => t.id));
 const CRAFTED_IDS = new Set(RECIPES.map((r) => r.output.id));
 
+/* ─────────────────── Öğeyi kategorize et ─────────────────── */
 export function categorizeItem(itemId) {
   if (itemId.endsWith("_tohum")) return "tohum";
   if (itemId.endsWith("_fidan")) return "fidan";
@@ -17,8 +21,10 @@ export function categorizeItem(itemId) {
   return "diger";
 }
 
+/* ─────────────────── Filtre tanımları ─────────────────── */
 export const FILTERS = ["tümü", "tohum", "fidan", "üretim"];
 
+/* ─────────────────── Envanter listesini al ─────────────────── */
 export function getInventoryList(state, { filter = "tümü", sortBy = "isim" } = {}) {
   let list = Object.entries(state.inventory.items).map(([itemId, data]) => ({
     itemId,

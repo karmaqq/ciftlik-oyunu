@@ -1,0 +1,115 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                          ÇİFTLİK OYUNU — SEKME ÇUBUKLARI                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.tab-bar {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: nowrap;
+  margin-bottom: var(--space-sm);
+}
+
+.tab-bar button {
+  font-size: var(--font-md);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tab-bar button:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.tab-bar button.active {
+  background: var(--accent);
+  color: var(--text-inverse);
+  border-color: var(--accent);
+  font-weight: 700;
+  box-shadow: var(--shadow-glow);
+}
+
+.tab-bar.small {
+  display: flex;
+  gap: var(--space-xs);
+  width: 100%;
+  overflow: hidden;
+}
+
+.tab-bar.small button.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--accent);
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.tab-bar.small button {
+  font-size: var(--font-md);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+  transition: all var(--transition-fast);
+}
+
+.tab-bar.small .hamburger-btn {
+  flex: 0 0 32px;
+}
+
+.hamburger-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 6px;
+  transition: background var(--transition-fast);
+}
+
+.hamburger-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--accent-muted);
+}
+
+.hamburger-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.hamburger-btn span {
+  display: block;
+  height: 2px;
+  background: var(--text-secondary);
+  border-radius: 1px;
+}
+
+.hamburger-btn span:nth-child(1) {
+  width: 16px;
+}
+.hamburger-btn span:nth-child(2) {
+  width: 12px;
+}
+.hamburger-btn span:nth-child(3) {
+  width: 8px;
+}

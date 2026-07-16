@@ -1,6 +1,10 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                   Hayvan ve bina verileri                                 */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/data/animals.js
 // 3 tarla dışı bina: kovan (hive), kümes (coop), ahır (barn).
 
+/* ─────────────────── Bina türleri ─────────────────── */
 export const BUILDING_TYPES = {
   hive: {
     id: "hive",
@@ -39,14 +43,18 @@ export const BUILDING_TYPES = {
   },
 };
 
+/* ─────────────────── Maksimum bina seviyesi ─────────────────── */
 export const MAX_BUILDING_LEVEL = 5;
+/* ─────────────────── Seviye başına hız ─────────────────── */
 export const BUILDING_SPEED_PER_LEVEL = 0.1;
 
+/* ─────────────────── Seviyeye göre kapasite ─────────────────── */
 export function capacityForLevel(buildingType, level) {
   const def = BUILDING_TYPES[buildingType];
   return def.baseCapacity + def.capacityPerLevel * level;
 }
 
+/* ─────────────────── Seviyeye göre hız çarpanı ─────────────────── */
 export function speedMultiplierForLevel(level) {
   return 1 + BUILDING_SPEED_PER_LEVEL * level;
 }

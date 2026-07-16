@@ -1,6 +1,10 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                         Hava durumu sistemi                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/weather.js
 // Her in-game gün başında (day değiştiğinde) hava koşulu yeniden belirlenir.
 
+/* ─────────────────── Hava durumu türleri ─────────────────── */
 export const WEATHER_TYPES = {
   normal: { id: "normal", name: "Normal", growthSpeedMultiplier: 1, tradeLossChance: 0, rarityChance: {} },
   yagmurlu: { id: "yagmurlu", name: "Yağmurlu", growthSpeedMultiplier: 1.15, tradeLossChance: 0, rarityChance: { nadir: 0.05 } },
@@ -18,10 +22,12 @@ const WEATHER_WEIGHTS = [
   ["gokkusagi", 5],
 ];
 
+/* ─────────────────── İlk hava durumunu oluştur ─────────────────── */
 export function createInitialWeather() {
   return { current: "normal" };
 }
 
+/* ─────────────────── Yeni hava durumu belirle ─────────────────── */
 export function rollNewWeather() {
   const total = WEATHER_WEIGHTS.reduce((sum, [, w]) => sum + w, 0);
   let roll = Math.random() * total;
@@ -32,6 +38,7 @@ export function rollNewWeather() {
   return "normal";
 }
 
+/* ─────────────────── Mevcut hava durumunu al ─────────────────── */
 export function getWeather(weatherState) {
   return WEATHER_TYPES[weatherState.current];
 }
@@ -40,6 +47,7 @@ export function getWeather(weatherState) {
  * Hasat sırasında nadirlik (rarity) belirler.
  * @returns {"normal"|"nadir"|"legendary"|"gizemli"}
  */
+/* ─────────────────── Nadirlik şansı hesapla ─────────────────── */
 export function rollRarity(weatherState) {
   const w = getWeather(weatherState);
   const roll = Math.random();
@@ -53,6 +61,7 @@ export function rollRarity(weatherState) {
   return "normal";
 }
 
+/* ─────────────────── Nadirlik satış çarpanı ─────────────────── */
 export const RARITY_SELL_MULTIPLIER = {
   normal: 1,
   nadir: 1.5,

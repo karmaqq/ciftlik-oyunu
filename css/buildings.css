@@ -1,0 +1,85 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                          ÇİFTLİK OYUNU — BİNA PANELİ                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.building-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
+.building-panel-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.building-panel-info h3 {
+  font-size: var(--font-lg);
+  margin-bottom: var(--space-xs);
+}
+
+.building-panel-info p {
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xxs);
+}
+
+.building-panel-products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  align-content: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  align-self: stretch;
+}
+
+.building-product-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  min-width: 56px;
+  flex: 1 1 auto;
+  align-self: stretch;
+  transition:
+    filter 0.15s,
+    transform 0.15s;
+}
+
+.building-product-cell:hover {
+  filter: brightness(1.15);
+  transform: scale(1.05);
+}
+
+.building-product-cell:active {
+  cursor: grabbing;
+}
+
+.building-product-emoji {
+  font-size: 1.3em;
+  line-height: 1;
+}
+
+.building-product-qty {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.building-product-empty {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}

@@ -1,27 +1,20 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                  Market döngüsü ve alışverişi                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/market.js
 import { CROPS } from "../data/crops.js";
 import { TREES } from "../data/trees.js";
-import { addItem, hasItem, removeItem } from "../state.js";
+import { addItem, hasItem, removeItem, countInventorySlots, isInventoryFull, hasItemInInventory } from "../state.js";
 import { getWeather } from "./weather.js";
 import { BUILDING_TYPES, capacityForLevel } from "../data/animals.js";
 import { getCalendarBuyMultiplier, getCalendarSellMultiplier } from "./calendarTrade.js";
+import { gameLog } from "../log.js";
 
+/* ─────────────────── Market yenileme süresi ─────────────────── */
 export const MARKET_REFRESH_SECONDS = 70;
 const BULK_DISCOUNT = 0.10;
 
 let lastRefreshTimestamp = Date.now();
-
-function countInventorySlots(state) {
-  return Object.keys(state.inventory.items).length;
-}
-
-function isInventoryFull(state) {
-  return countInventorySlots(state) >= state.inventory.maxSlots;
-}
-
-function hasItemInInventory(state, itemId) {
-  return !!state.inventory.items[itemId];
-}
 
 const MARKET_ANIMALS = [
   { buildingType: "hive", label: "Arı", emoji: "🐝", basePrice: 10 },
@@ -34,6 +27,7 @@ function randomInt(min, max) {
 }
 
 /** Yeni market döngüsü: kategori bazlı slot sistemi. */
+/* ─────────────────── Market döngüsü oluştur ─────────────────── */
 export function generateMarketCycle(state) {
   const seedSlots = state.market.seedSlots;
   const saplingSlots = state.features && state.features.orchard ? state.market.saplingSlots : 0;
@@ -45,11 +39,16 @@ export function generateMarketCycle(state) {
   function rollPriceMultiplier() {
     if (!calendarActive) return 1;
     const roll = Math.random();
-    if (roll < 0.02) return 0;                                              // %2 bedava (%100 indirim)
-    if (roll < 0.05) return 2;                                              // %3 tam pahalı (%100 zam)
-    if (roll < 0.40) return 0.01 + Math.random() * 0.98;                    // %35 indirimli (0.01x - 0.99x)
-    if (roll < 0.75) return 1.01 + Math.random() * 0.98;                    // %35 zamlı (1.01x - 1.99x)
-    return 1;                                                                // %25 aynı fiyat
+    // %2 bedava (%100 indirim)
+    if (roll < 0.02) return 0;
+    // %3 tam pahalı (%100 zam)
+    if (roll < 0.05) return 2;
+    // %35 indirimli (0.01x - 0.99x)
+    if (roll < 0.40) return 0.01 + Math.random() * 0.98;
+    // %35 zamlı (1.01x - 1.99x)
+    if (roll < 0.75) return 1.01 + Math.random() * 0.98;
+    // %25 aynı fiyat
+    return 1;
   }
 
   const seedPool = CROPS.map((c) => ({ itemId: c.id, seedId: `${c.id}_tohum`, basePrice: c.buyPrice }));
@@ -116,6 +115,7 @@ export function generateMarketCycle(state) {
   return listings;
 }
 
+/* ─────────────────── Market zamanlayıcısı ─────────────────── */
 export function tickMarket(state) {
   const now = Date.now();
   const elapsed = Math.floor((now - lastRefreshTimestamp) / 1000);
@@ -133,14 +133,15 @@ export function tickMarket(state) {
     state.market.lastRefreshTimestamp = now;
     state.market.listings = generateMarketCycle(state);
     state.market.secondsSinceRefresh = 0;
-    if (window._gameLog) {
-      window._gameLog("Pazar yenilendi! Yeni ürünler mevcut.", "trade");
+    if (gameLog) {
+      gameLog("Pazar yenilendi! Yeni ürünler mevcut.", "trade");
     }
   } else {
     state.market.secondsSinceRefresh = elapsed;
   }
 }
 
+/* ─────────────────── Market zaman damgasını başlat ─────────────────── */
 export function initMarketTimestamp(savedTimestamp, state) {
   if (savedTimestamp && typeof savedTimestamp === "number") {
     lastRefreshTimestamp = savedTimestamp;
@@ -152,11 +153,8 @@ export function initMarketTimestamp(savedTimestamp, state) {
   state.market.secondsSinceRefresh = Math.floor((Date.now() - lastRefreshTimestamp) / 1000);
 }
 
-export function getMarketTimestamp() {
-  return lastRefreshTimestamp;
-}
-
 /** Tekli satın alma: 1 adet alır, kalan azalır. Hayvan ise binaya ekler. */
+/* ─────────────────── Tek tohum satın al ─────────────────── */
 export function buyOneSeed(state, listingIndex, deductGold, playerGold) {
   const listing = state.market.listings[listingIndex];
   if (!listing) return { success: false, reason: "gecersiz_liste" };
@@ -188,6 +186,7 @@ export function buyOneSeed(state, listingIndex, deductGold, playerGold) {
 }
 
 /** Toplu satın alma: kalanın tamamını %10 indirimli alır. */
+/* ─────────────────── Tüm tohumları satın al ─────────────────── */
 export function buyAllSeeds(state, listingIndex, deductGold, playerGold) {
   const listing = state.market.listings[listingIndex];
   if (!listing) return { success: false, reason: "gecersiz_liste" };
@@ -223,11 +222,11 @@ export function buyAllSeeds(state, listingIndex, deductGold, playerGold) {
 }
 
 /** Toplu alım indirim oranını dışarıya aç (info gösterimi için). */
+/* ─────────────────── Toplu indirim yüzdesi ─────────────────── */
 export function getBulkDiscountPercent() {
   return Math.round(BULK_DISCOUNT * 100);
 }
-
-/** Envanterdeki hasat edilmiş ürünü satar. */
+/* ─────────────────── Öğeyi sat ─────────────────── */
 export function sellItem(state, itemId, qty, sellPrice, addGold, itemMeta) {
   if (!hasItem(state, itemId, qty)) return { success: false, reason: "yetersiz_urun" };
 

@@ -1,9 +1,14 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                     Zaman ve mevsim sistemi                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/time.js
 // Zaman sistemi: 1 gün = 12 gerçek saniye, 1 yıl = 365 gün = 12 ay.
 // Mevsimler aylara bağlı: Kış(Oca-Şub-Mar), İlkbahar(Nis-May-Haz), Yaz(Tem-Ağu-Eyl), Sonbahar(Eki-Kas-Ara).
 
+/* ─────────────────── Gün saniye süresi ─────────────────── */
 export const DAY_SECONDS = 10;
 
+/* ─────────────────── Aylar tanımları ─────────────────── */
 export const MONTHS = [
   { name: "Ocak",    days: 31, season: "kış" },
   { name: "Şubat",   days: 28, season: "kış" },
@@ -19,10 +24,14 @@ export const MONTHS = [
   { name: "Aralık",  days: 31, season: "kış" },
 ];
 
+/* ─────────────────── Mevsimler tanımları ─────────────────── */
 export const SEASONS = ["ilkbahar", "yaz", "sonbahar", "kış"];
+/* ─────────────────── Yıl gün sayısı ─────────────────── */
 export const YEAR_DAYS = MONTHS.reduce((sum, m) => sum + m.days, 0); // 365
+/* ─────────────────── Yıl başına ay sayısı ─────────────────── */
 export const MONTHS_PER_YEAR = 12;
 
+/* ─────────────────── İlk zamanı oluştur ─────────────────── */
 export function createInitialTime() {
   return {
     year: 1,
@@ -38,6 +47,7 @@ export function createInitialTime() {
  * @param {number} dtSeconds geçen gerçek saniye
  * @returns {{dayChanged:boolean, monthChanged:boolean, seasonChanged:boolean, yearChanged:boolean}}
  */
+/* ─────────────────── Zamanı ilerlet ─────────────────── */
 export function tickTime(time, dtSeconds) {
   const events = { dayChanged: false, monthChanged: false, seasonChanged: false, yearChanged: false };
   time.secondsIntoDay += dtSeconds;
@@ -71,19 +81,12 @@ export function tickTime(time, dtSeconds) {
   return events;
 }
 
+/* ─────────────────── Mevcut mevsimi al ─────────────────── */
 export function currentSeason(time) {
   return MONTHS[time.month].season;
 }
 
-export function currentMonthName(time) {
-  return MONTHS[time.month].name;
-}
-
-export function formatTime(time) {
-  const monthName = MONTHS[time.month].name;
-  return `Yıl ${time.year} · ${time.day} ${monthName}`;
-}
-
+/* ─────────────────── Günü saniyeye çevir ─────────────────── */
 export function daysToSeconds(days) {
   return days * DAY_SECONDS;
 }

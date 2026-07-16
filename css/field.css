@@ -1,0 +1,291 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                          ÇİFTLİK OYUNU — TARLA / BAHÇE / SLOT                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.plot-grid {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-xs);
+  width: 100%;
+}
+
+.field-grid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.orchard-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* ---------- TARLA SLOT BOYUTLARI ---------- */
+.field-grid .slot-inner {
+  font-size: var(--font-2xl);
+}
+
+.field-grid .slot-name {
+  font-size: var(--font-xs);
+}
+
+.field-grid .empty-plantable .slot-inner {
+  font-size: var(--font-2xl);
+}
+
+/* ---------- BAHÇE SLOT BOYUTLARI ---------- */
+.orchard-grid .slot-inner {
+  font-size: var(--font-2xl);
+}
+
+.orchard-grid .slot-name {
+  font-size: var(--font-sm);
+}
+
+.orchard-grid .empty-plantable .slot-inner {
+  font-size: var(--font-2xl);
+}
+
+.orchard-grid .remove-btn {
+  font-size: 14px;
+  top: 3px;
+  right: 3px;
+}
+
+.orchard-grid .slot-upgrades {
+  bottom: 3px;
+  left: 3px;
+}
+
+.slot {
+  position: relative;
+  aspect-ratio: 1;
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  transition: all var(--transition-normal);
+  overflow: hidden;
+  padding: 3px;
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.slot.locked {
+  opacity: 0.45;
+  cursor: pointer;
+  filter: grayscale(0.4);
+  border-style: dashed;
+}
+
+.slot.locked .slot-inner {
+  font-size: var(--font-lg);
+}
+
+.orchard-grid .slot.locked .slot-inner {
+  font-size: var(--font-2xl);
+}
+
+.orchard-grid .slot.locked .slot-name {
+  font-size: var(--font-sm);
+}
+
+.slot.locked:hover {
+  opacity: 0.65;
+  filter: grayscale(0.2);
+  border-color: var(--accent-muted);
+}
+
+.slot.empty-plantable {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  cursor: default;
+}
+
+.slot.empty-plantable:hover {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+
+.slot.empty-plantable .slot-inner {
+  font-size: var(--font-xl);
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+}
+
+.slot.empty-plantable:hover .slot-inner {
+  color: var(--accent);
+}
+
+.slot.growing {
+  background: #121828;
+  border-color: #1e2e48;
+}
+
+.slot.ready {
+  background: #182030;
+  cursor: pointer;
+  border-color: var(--gold);
+  will-change: filter;
+  animation: pulse-ready 2.5s ease-in-out infinite;
+}
+
+.slot.ready:hover {
+  background: #3a4a18;
+  box-shadow: var(--shadow-glow-gold);
+}
+
+.slot-inner {
+  font-size: var(--font-lg);
+  line-height: 1;
+}
+
+.slot-name {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  line-height: 1;
+  width: 100%;
+  position: relative;
+}
+
+.slot-name.is-overflow .label-text {
+  display: inline-block;
+}
+
+.slot:hover .slot-name.is-overflow {
+  overflow: visible;
+  z-index: 10;
+}
+
+.slot:hover .slot-name.is-overflow .label-text {
+  animation: scrollLabel var(--scroll-dur, 4s) ease-in-out infinite;
+  background: var(--bg-surface);
+  border-radius: 2px;
+  padding: 0 3px;
+}
+
+.slot.drag-over {
+  border-color: var(--accent) !important;
+  background: var(--bg-elevated) !important;
+  box-shadow: var(--shadow-glow) !important;
+  transform: scale(1.04);
+}
+
+/* ---------- İLERLEME ÇUBUĞU ---------- */
+.progress {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--bg-deep);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.field-grid .progress {
+  height: 3px;
+}
+
+.orchard-grid .progress {
+  height: 4px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-muted), var(--accent));
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+
+/* ---------- GELİŞTİRME DÜĞMELERİ ---------- */
+.slot-upgrades {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: var(--z-base);
+}
+
+.mini-btn {
+  font-size: var(--font-sm);
+  padding: 3px 4px 3px 2px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.mini-btn .upgrade-icon {
+  color: #4ade80;
+  flex-shrink: 0;
+}
+
+.orchard-grid .mini-btn {
+  font-size: var(--font-md);
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px 5px 4px 3px;
+}
+
+.orchard-grid .mini-btn .upgrade-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.remove-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  z-index: var(--z-base);
+}
+
+.slot:hover .remove-btn {
+  opacity: 0.7;
+}
+
+.remove-btn:hover {
+  opacity: 1 !important;
+  background: var(--danger);
+}
+
+.mini-btn:hover:not(:disabled) {
+  background: rgba(74, 222, 128, 0.15);
+  border-color: #4ade80;
+}
+
+.mini-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.5) brightness(0.8);
+}
+
+.mini-btn.insufficient-gold {
+  background: rgba(180, 40, 40, 0.25);
+  color: #e07070;
+  border-color: rgba(200, 60, 60, 0.4);
+  filter: grayscale(0.3) brightness(0.85);
+  cursor: not-allowed;
+}

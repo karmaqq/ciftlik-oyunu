@@ -1,0 +1,58 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                          ÇİFTLİK OYUNU — HEADER                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+#header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xl);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--bg-panel);
+  border-bottom: 2px solid var(--border-default);
+  min-height: 2.75rem;
+}
+
+.hdr-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.hdr-item b {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.hdr-queue {
+  background: var(--bg-elevated);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: var(--font-sm);
+  animation: pulse-ready 2.5s ease-in-out infinite;
+}
+
+.ml-auto {
+  margin-left: auto;
+}
+
+.new-game-btn {
+  background: transparent;
+  border: 1px solid var(--text-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.new-game-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}

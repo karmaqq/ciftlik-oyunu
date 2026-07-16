@@ -1,20 +1,26 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    Tarla ekimi ve büyüme                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/field.js
 import { getCrop } from "../data/crops.js";
 import { itemDisplayName, itemEmoji } from "../data/items.js";
 import { daysToSeconds } from "./time.js";
 import { getWeather, rollRarity, RARITY_SELL_MULTIPLIER } from "./weather.js";
 import { addItem, hasItem, removeItem, FIELD_LEVEL_SPEED_BONUS } from "../state.js";
+import { gameLog } from "../log.js";
 
 const MIN_HARVESTS = 1;
 const MAX_HARVESTS = 5;
 
 /** Slotun toplam büyüme hızı çarpanını hesaplar (tarla seviyesi + hava). */
+/* ─────────────────── Büyüme çarpanı hesapla ─────────────────── */
 export function computeGrowthMultiplier(slot, weatherState) {
   const levelBonus = 1 + FIELD_LEVEL_SPEED_BONUS * slot.level;
   const weatherBonus = getWeather(weatherState).growthSpeedMultiplier;
   return levelBonus * weatherBonus;
 }
 
+/* ─────────────────── Ekilebilir mi ─────────────────── */
 export function canPlant(state, slot, cropId) {
   if (!slot.unlocked || slot.planted) return false;
   const crop = getCrop(cropId);
@@ -22,6 +28,7 @@ export function canPlant(state, slot, cropId) {
   return hasItem(state, `${cropId}_tohum`, 1);
 }
 
+/* ─────────────────── Tohum ek ─────────────────── */
 export function plantSeed(state, slotIndex, cropId) {
   const slot = state.field.slots[slotIndex];
   const crop = getCrop(cropId);
@@ -44,6 +51,7 @@ export function plantSeed(state, slotIndex, cropId) {
 }
 
 /** Her tick'te (main loop) çağrılır: tüm açık/ekili slotların büyümesini ilerletir. */
+/* ─────────────────── Tarla büyümesini güncelle ─────────────────── */
 export function tickFieldGrowth(state, dtSeconds) {
   for (const slot of state.field.slots) {
     if (!slot.unlocked || !slot.planted || slot.planted.ready) continue;
@@ -52,14 +60,15 @@ export function tickFieldGrowth(state, dtSeconds) {
     if (slot.planted.elapsedSeconds >= slot.planted.requiredSeconds) {
       slot.planted.ready = true;
       const crop = getCrop(slot.planted.cropId);
-      if (crop && window._gameLog) {
-        window._gameLog(`${itemEmoji(crop.id)} ${itemDisplayName(crop.id)} hasat için hazır`, "info");
+      if (crop) {
+        gameLog(`${itemEmoji(crop.id)} ${itemDisplayName(crop.id)} hasat için hazır`, "info");
       }
     }
   }
 }
 
 /** Hazır bir slotu hasat eder. Recurring ürünlerde slot ekili kalır, once ürünlerde boşalır. */
+/* ─────────────────── Slotu hasat et ─────────────────── */
 export function harvestSlot(state, slotIndex) {
   const slot = state.field.slots[slotIndex];
   if (!slot.planted || !slot.planted.ready) return { success: false, reason: "hazir_degil" };
@@ -92,6 +101,7 @@ export function harvestSlot(state, slotIndex) {
 }
 
 /** Ekili slotu manuel olarak söker. */
+/* ─────────────────── Bitkiyi kaldır ─────────────────── */
 export function removePlant(state, slotIndex) {
   const slot = state.field.slots[slotIndex];
   if (!slot.planted) return { success: false, reason: "hazir_degil" };
@@ -99,6 +109,7 @@ export function removePlant(state, slotIndex) {
   return { success: true };
 }
 
+/* ─────────────────── Slot kilidini aç ─────────────────── */
 export function unlockSlot(state, slotIndex, cost, playerCanAfford, deductGold) {
   const slot = state.field.slots[slotIndex];
   if (slot.unlocked) return { success: false, reason: "zaten_acik" };
@@ -108,7 +119,9 @@ export function unlockSlot(state, slotIndex, cost, playerCanAfford, deductGold) 
   return { success: true };
 }
 
+/* ─────────────────── Tarla geliştirme temel maliyeti ─────────────────── */
 export const FIELD_UPGRADE_BASE_COST = 20;
+/* ─────────────────── Tarla geliştirme maliyeti ─────────────────── */
 export function fieldUpgradeCost(currentLevel) {
   return Math.round(FIELD_UPGRADE_BASE_COST * Math.pow(1.3, currentLevel));
 }

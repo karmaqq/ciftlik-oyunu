@@ -1,3 +1,6 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    Merkezi oyun durumu                                    */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/state.js
 // Merkezi oyun durumu. Tüm sistemler bu state objesini okuyup mutasyona uğratır.
 
@@ -6,13 +9,21 @@ import { createInitialWeather } from "./systems/weather.js";
 import { RECIPES } from "./data/recipes.js";
 import { BUILDING_TYPES } from "./data/animals.js";
 
+/* ─────────────────── Toplam tarla slotu ─────────────────── */
 export const FIELD_TOTAL_SLOTS = 25; // 5x5
+/* ─────────────────── Başlangıçta açık tarla slotu ─────────────────── */
 export const FIELD_START_UNLOCKED = 5;
+/* ─────────────────── Toplam bahçe slotu ─────────────────── */
 export const ORCHARD_TOTAL_SLOTS = 9; // 3x3
+/* ─────────────────── Başlangıçta açık bahçe slotu ─────────────────── */
 export const ORCHARD_START_UNLOCKED = 3;
+/* ─────────────────── Toplam envanter slotu ─────────────────── */
 export const INVENTORY_TOTAL_SLOTS = 25; // 5x5
+/* ─────────────────── Maksimum tarla seviyesi ─────────────────── */
 export const MAX_FIELD_LEVEL = 25;
+/* ─────────────────── Tarla seviye hız bonusu ─────────────────── */
 export const FIELD_LEVEL_SPEED_BONUS = 0.02; // %2 / seviye, max %50
+/* ─────────────────── Kategori başına maksimum market slotu ─────────────────── */
 export const MAX_MARKET_SLOTS_PER_CATEGORY = 3;
 const MARKET_START_SLOTS = 1;
 
@@ -42,6 +53,7 @@ function createOrchardSlots() {
   return slots;
 }
 
+/* ─────────────────── İlk oyun durumunu oluştur ─────────────────── */
 export function createInitialState() {
   return {
     player: { gold: 250, level: 1, xp: 0 },
@@ -86,15 +98,18 @@ export function createInitialState() {
 
 // ---- Envanter yardımcıları ----
 
-function countInventorySlots(state) {
+/* ─────────────────── Envanter slotlarını say ─────────────────── */
+export function countInventorySlots(state) {
   return Object.keys(state.inventory.items).length;
 }
 
-function isInventoryFull(state) {
+/* ─────────────────── Envanter dolu mu ─────────────────── */
+export function isInventoryFull(state) {
   return countInventorySlots(state) >= state.inventory.maxSlots;
 }
 
-function hasItemInInventory(state, itemId) {
+/* ─────────────────── Envanterde öğe var mı ─────────────────── */
+export function hasItemInInventory(state, itemId) {
   return !!state.inventory.items[itemId];
 }
 
@@ -102,6 +117,7 @@ function hasItemInInventory(state, itemId) {
  * Ürünü envantere ekler. Envanter doluysa kuyruğa alır.
  * @returns {{success:boolean, queued:boolean, reason?:string}}
  */
+/* ─────────────────── Öğe ekle ─────────────────── */
 export function addItem(state, itemId, qty, meta) {
   if (qty <= 0) return { success: false, queued: false, reason: "eksik_miktar" };
 
@@ -126,6 +142,7 @@ export function addItem(state, itemId, qty, meta) {
  * Kuyruktaki ürünleri envantere eklemeyi dener.
  * @returns {Array<{itemId:string, qty:number}>} Eklenen ürünler
  */
+/* ─────────────────── Kuyruğu işle ─────────────────── */
 export function processQueue(state) {
   const added = [];
   const queue = state.inventory.queue;
@@ -147,11 +164,13 @@ export function processQueue(state) {
   return added;
 }
 
+/* ─────────────────── Öğe var mı ─────────────────── */
 export function hasItem(state, itemId, qty) {
   const entry = state.inventory.items[itemId];
   return !!entry && entry.quantity >= qty;
 }
 
+/* ─────────────────── Öğeyi kaldır ─────────────────── */
 export function removeItem(state, itemId, qty) {
   const entry = state.inventory.items[itemId];
   if (!entry || entry.quantity < qty) return false;
@@ -173,16 +192,19 @@ function findBuildingForProduct(state, productId) {
   return type ? { type, building: state.buildings[type] } : null;
 }
 
+/* ─────────────────── Hayvan ürün sayısını al ─────────────────── */
 export function getAnimalProductCount(state, productId) {
   const found = findBuildingForProduct(state, productId);
   if (!found) return 0;
   return found.building.stored[productId] || 0;
 }
 
+/* ─────────────────── Hayvan ürünü var mı ─────────────────── */
 export function hasAnimalProduct(state, productId, qty) {
   return getAnimalProductCount(state, productId) >= qty;
 }
 
+/* ─────────────────── Hayvan ürününü kaldır ─────────────────── */
 export function removeAnimalProduct(state, productId, qty) {
   const found = findBuildingForProduct(state, productId);
   if (!found) return false;
@@ -190,22 +212,4 @@ export function removeAnimalProduct(state, productId, qty) {
   if (current < qty) return false;
   found.building.stored[productId] = current - qty;
   return true;
-}
-
-export function addAnimalProduct(state, productId, qty) {
-  const found = findBuildingForProduct(state, productId);
-  if (!found) return false;
-  found.building.stored[productId] = (found.building.stored[productId] || 0) + qty;
-  return true;
-}
-
-export function getAllAnimalProducts(state) {
-  const result = [];
-  for (const [type, def] of Object.entries(BUILDING_TYPES)) {
-    const building = state.buildings[type];
-    for (const [productId, qty] of Object.entries(building.stored)) {
-      if (qty > 0) result.push({ buildingType: type, productId, qty });
-    }
-  }
-  return result;
 }

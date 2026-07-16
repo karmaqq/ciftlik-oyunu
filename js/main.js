@@ -1,3 +1,6 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                   Oyun giriş noktası                                      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/main.js
 import { createInitialState, processQueue } from "./state.js";
 import { tickTime, currentSeason } from "./systems/time.js";
@@ -5,10 +8,11 @@ import { rollNewWeather, getWeather } from "./systems/weather.js";
 import { tickFieldGrowth } from "./systems/field.js";
 import { tickOrchardGrowth } from "./systems/orchard.js";
 import { tickBuildings } from "./systems/buildings.js";
-import { tickMarket, initMarketTimestamp, getMarketTimestamp } from "./systems/market.js";
-import { initUI, render, tickUpdate, checkHints } from "./ui.js";
-import { initGame, saveGame, startAutoSave, clearSave } from "./systems/save.js";
+import { tickMarket, initMarketTimestamp } from "./systems/market.js";
+import { initUI, render, tickUpdate, checkHints } from "./ui/index.js";
+import { initGame, startAutoSave, clearSave } from "./systems/save.js";
 import { getCalendarTradeInfo } from "./systems/calendarTrade.js";
+import { setLogger } from "./log.js";
 const TICK_MS = 1000;
 
 const SEASON_EFFECT = {
@@ -87,7 +91,7 @@ function main() {
     location.reload();
   });
 
-  window._gameLog = log;
+  setLogger(log);
 
   initMarketTimestamp(state.market.lastRefreshTimestamp, state);
 

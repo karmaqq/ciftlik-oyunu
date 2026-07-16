@@ -1,0 +1,164 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                          ÇİFTLİK OYUNU — ENVANTER                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-auto-rows: min-content;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.quick-sell-zone {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  transition: all var(--transition-fast);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#sell-tabs button {
+  flex: 1;
+}
+
+.quick-sell-zone:hover {
+  border-color: var(--danger);
+}
+
+.quick-sell-zone.drag-over {
+  background: rgba(208, 72, 56, 0.1);
+  border-color: var(--danger);
+  box-shadow: inset 0 0 10px rgba(208, 72, 56, 0.1);
+}
+
+.quick-sell-content {
+  pointer-events: none;
+}
+
+.quick-sell-content small {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.cell {
+  aspect-ratio: 1;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  transition: all var(--transition-fast);
+  overflow: hidden;
+  min-width: 0;
+  position: relative;
+}
+
+.cell.empty {
+  border-style: dashed;
+  opacity: 0.25;
+}
+
+.cell.item {
+  cursor: grab;
+}
+
+.cell.item:hover {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-glow);
+  transform: scale(1.03);
+  z-index: var(--z-base);
+}
+
+.cell.item:active {
+  transform: scale(0.97);
+  cursor: grabbing;
+}
+
+.cell .qty {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-weight: 700;
+  font-size: var(--font-xs);
+  color: var(--text-primary);
+  line-height: 1;
+  background: var(--bg-surface);
+  border-radius: 3px;
+  padding: 0 2px;
+  pointer-events: none;
+}
+
+.cell-emoji {
+  font-size: var(--font-xl);
+  line-height: 1;
+}
+
+.cell .label {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  padding: 0 var(--space-xxs);
+  line-height: 1.2;
+  width: 100%;
+}
+
+.cell .label.is-overflow .label-text {
+  display: inline-block;
+}
+
+.cell:hover .label.is-overflow {
+  overflow: visible;
+  z-index: 10;
+}
+
+.cell:hover .label.is-overflow .label-text {
+  animation: scrollLabel var(--scroll-dur, 4s) ease-in-out infinite;
+  background: var(--bg-surface);
+  border-radius: 2px;
+  padding: 0 3px;
+}
+
+@keyframes scrollLabel {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+  40%,
+  60% {
+    transform: translateX(var(--scroll-dist, -30px));
+  }
+  85%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.cell.tohum {
+  background: #121a2e;
+  border-color: #1e2e50;
+}
+
+.cell.fidan {
+  background: #1a1820;
+  border-color: #302e44;
+}

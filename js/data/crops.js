@@ -1,7 +1,11 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    Tarla ürünleri verileri                                */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/data/crops.js
 // Tarla ürünleri — 20 çeşit, 4 kademeye (tier) bölünmüş (kademe başına 5 ürün).
 // harvestCycle: "once" (tek hasat, sonra slot boşalır) | "recurring" (belirli aralıkla tekrar hasat verir)
 
+/* ─────────────────── Ürün verileri ─────────────────── */
 export const CROPS = [
   // ---- Tier 1 (kolay) — 15-30 saniye (~1-2.5 gün) ----
   { id: "bugday", name: "Buğday", tier: 1, seasons: ["ilkbahar", "yaz"], growthDays: 2, harvestCycle: "once", buyPrice: 2, sellPrice: 1 },
@@ -32,6 +36,7 @@ export const CROPS = [
   { id: "nohut", name: "Nohut", tier: 4, seasons: ["ilkbahar"], growthDays: 20, harvestCycle: "once", buyPrice: 55, sellPrice: 30 },
 ];
 
+/* ─────────────────── Ürün bilgisini al ─────────────────── */
 export function getCrop(id) {
   return CROPS.find((c) => c.id === id);
 }

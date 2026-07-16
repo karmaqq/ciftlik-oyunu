@@ -1,9 +1,13 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                   Bina geliştirme sistemi                                 */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/buildings.js
 import { BUILDING_TYPES, MAX_BUILDING_LEVEL, capacityForLevel, speedMultiplierForLevel } from "../data/animals.js";
 import { daysToSeconds } from "./time.js";
 import { getWeather } from "./weather.js";
 
 /** Her tick'te binaların üretim sayaçlarını ilerletir; hazır olan ürünleri building.stored'a ekler. */
+/* ─────────────────── Binaları güncelle ─────────────────── */
 export function tickBuildings(state, dtSeconds) {
   for (const type of Object.keys(BUILDING_TYPES)) {
     const def = BUILDING_TYPES[type];
@@ -26,30 +30,19 @@ export function tickBuildings(state, dtSeconds) {
   }
 }
 
-export function buyAnimal(state, buildingType, deductGold, playerGold) {
-  const def = BUILDING_TYPES[buildingType];
-  const building = state.buildings[buildingType];
-  const capacity = capacityForLevel(buildingType, building.level);
-
-  if (building.population >= capacity) return { success: false, reason: "kapasite_dolu" };
-  if (playerGold < def.animalBuyPrice) return { success: false, reason: "yetersiz_altin" };
-
-  deductGold(def.animalBuyPrice);
-  building.population += 1;
-  return { success: true };
-}
-
 const UPGRADE_COST = {
   hive: { base: 50,  mult: 1.4 },
   coop: { base: 80,  mult: 1.4 },
   barn: { base: 120, mult: 1.4 },
 };
 
+/* ─────────────────── Bina geliştirme maliyeti ─────────────────── */
 export function buildingUpgradeCost(currentLevel, buildingType) {
   const cfg = UPGRADE_COST[buildingType] || UPGRADE_COST.hive;
   return Math.round(cfg.base * Math.pow(cfg.mult, currentLevel));
 }
 
+/* ─────────────────── Bina geliştir ─────────────────── */
 export function upgradeBuilding(state, buildingType, deductGold, playerGold) {
   const building = state.buildings[buildingType];
   if (building.level >= MAX_BUILDING_LEVEL) return { success: false, reason: "max_seviye" };

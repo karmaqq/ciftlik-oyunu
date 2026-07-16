@@ -1,3 +1,6 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    Üretim (crafting) mantığı                              */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/crafting.js
 import { getRecipe } from "../data/recipes.js";
 import { addItem, removeItem, hasAnimalProduct, removeAnimalProduct, getAnimalProductCount } from "../state.js";
@@ -14,6 +17,7 @@ function consumeForCraft(state, itemId, qty) {
   }
 }
 
+/* ─────────────────── Üretilebilir mi ─────────────────── */
 export function canCraft(state, recipeId, times = 1) {
   const recipe = getRecipe(recipeId);
   if (!recipe) return false;
@@ -31,6 +35,7 @@ export function canCraft(state, recipeId, times = 1) {
  * recipe.learned = true olur ve UI'da "toplu üretim" listesine eklenebilir.
  * Yeni bir tier tamamen açılıyorsa logged edilir.
  */
+/* ─────────────────── Tarifi üret ─────────────────── */
 export function craftRecipe(state, recipeId, times = 1) {
   const recipe = getRecipe(recipeId);
   if (!recipe) return { success: false, reason: "tarif_yok" };

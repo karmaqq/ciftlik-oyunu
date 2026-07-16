@@ -1,0 +1,93 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                          ÇİFTLİK OYUNU — RESPONSIVE & ÖZELLİK GİZLEME                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 900px) {
+  #main-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #right-panel {
+    grid-column: 1 / -1;
+    max-height: 250px;
+  }
+
+  .recipe-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  :root {
+    font-size: 14px;
+  }
+
+  #main-layout {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    padding-bottom: 58px;
+  }
+
+  #right-panel {
+    max-height: none;
+  }
+
+  .field-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .recipe-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #log-panel {
+    height: 50px;
+    min-height: 50px;
+  }
+
+  #header {
+    gap: var(--space-md);
+    padding: var(--space-xs) var(--space-sm);
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .inventory-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .field-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .recipe-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hdr-item {
+    font-size: var(--font-md);
+  }
+}
+
+/* ---------- ÖZELLİK (FEATURE) GİZLEME ---------- */
+#inventory-panel.no-quick-sell .panel-bottom {
+  display: none;
+}
+
+#inventory-panel.no-quick-sell .panel-top {
+  flex: 1;
+}
+
+#middle-panel.no-buildings .panel-bottom {
+  display: none;
+}
+
+#middle-panel.no-buildings .panel-top {
+  flex: 1;
+}
+
+.tab-bar button[data-tab][style*="display: none"] {
+  pointer-events: none;
+}

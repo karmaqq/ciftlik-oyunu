@@ -1,3 +1,6 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                   Envanter öğeleri tanımları                              */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/data/items.js
 // Envanterdeki HERHANGİ bir itemId için görünen isim ve satış fiyatını çözer.
 // Tohum/fidan varyantları da otomatik türetir.
@@ -85,6 +88,7 @@ const CRAFTED_PRODUCTS = Object.fromEntries(
   ])
 );
 
+/* ─────────────────── Öğe emojisini al ─────────────────── */
 export function itemEmoji(itemId) {
   if (itemId.endsWith("_tohum")) {
     const baseId = itemId.replace(/_tohum$/, "");
@@ -101,6 +105,7 @@ export function itemEmoji(itemId) {
   return "📦";
 }
 
+/* ─────────────────── Öğeyi çözümlü ─────────────────── */
 export function resolveItem(itemId) {
   if (itemId.endsWith("_tohum")) {
     const baseId = itemId.replace(/_tohum$/, "");
@@ -125,10 +130,12 @@ export function resolveItem(itemId) {
   return { name: itemId, sellPrice: 1, emoji: "📦" };
 }
 
+/* ─────────────────── Öğe görünür adı ─────────────────── */
 export function itemDisplayName(itemId) {
   return resolveItem(itemId).name;
 }
 
+/* ─────────────────── Öğe satış fiyatı ─────────────────── */
 export function itemSellPrice(itemId, itemMeta) {
   if (itemMeta && itemMeta.sellPriceOverride) return itemMeta.sellPriceOverride;
   return resolveItem(itemId).sellPrice || 1;

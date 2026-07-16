@@ -1,8 +1,12 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                  Bahçe/fidanlık meyve ağaçları                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/data/trees.js
 // Bahçe/fidanlık meyve ağaçları — 20 çeşit, 4 kademe. Ağaçlar tarlaya göre daha
 // uzun büyür ama çoğu "recurring" olarak tekrar meyve verir (ağacı kesip yeniden
 // dikmek gerekmez).
 
+/* ─────────────────── Ağaç verileri ─────────────────── */
 export const TREES = [
   // ---- Tier 1 — 60-90 saniye (~5-7 gün) ----
   { id: "elma", name: "Elma", tier: 1, seasons: ["sonbahar"], growthDays: 6, harvestCycle: "recurring", recurringIntervalDays: 4, buyPrice: 5, sellPrice: 3 },
@@ -33,6 +37,7 @@ export const TREES = [
   { id: "nar", name: "Nar", tier: 4, seasons: ["sonbahar"], growthDays: 20, harvestCycle: "recurring", recurringIntervalDays: 11, buyPrice: 90, sellPrice: 54 },
 ];
 
+/* ─────────────────── Ağaç bilgisini al ─────────────────── */
 export function getTree(id) {
   return TREES.find((t) => t.id === id);
 }

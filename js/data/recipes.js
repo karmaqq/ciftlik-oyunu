@@ -1,8 +1,12 @@
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                  Tarifler ve üretim formülleri                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 // js/data/recipes.js
 // Tarifler malzeme sayısına göre otomatik kademelendirilmiştir:
 // 1 malzeme -> tier 1, 2 -> tier 2, 3 -> tier 3, 4+ -> tier 4.
 // "learned" ilk üretimden sonra true olur (bkz. systems/crafting.js).
 
+/* ─────────────────── Tarif verileri ─────────────────── */
 export const RECIPES = [
   // ==================== TIER 1 ====================
   { id: "peynir", name: "Peynir", tier: 1, inputs: [{ id: "sut", qty: 2 }], output: { id: "peynir", qty: 1 } },
@@ -75,6 +79,7 @@ export const RECIPES = [
   { id: "tatli_tabaqi", name: "Tatlı Tabağı", tier: 4, inputs: [{ id: "baklava", qty: 1 }, { id: "recel", qty: 1 }, { id: "incir_receli", qty: 1 }, { id: "mandalina_receli", qty: 1 }], output: { id: "tatli_tabaqi", qty: 1 } },
 ];
 
+/* ─────────────────── Tarif bilgisini al ─────────────────── */
 export function getRecipe(id) {
   return RECIPES.find((r) => r.id === id);
 }
