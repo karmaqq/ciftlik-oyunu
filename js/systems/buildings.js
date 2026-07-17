@@ -5,6 +5,7 @@
 import { BUILDING_TYPES, MAX_BUILDING_LEVEL, capacityForLevel, speedMultiplierForLevel } from "../data/animals.js";
 import { daysToSeconds } from "./time.js";
 import { getWeather } from "./weather.js";
+import { bumpBuildingVersion } from "../state.js";
 
 /** Her tick'te binaların üretim sayaçlarını ilerletir; hazır olan ürünleri building.stored'a ekler. */
 /* ─────────────────── Binaları güncelle ─────────────────── */
@@ -26,6 +27,7 @@ export function tickBuildings(state, dtSeconds) {
       if (def.secondaryProductId && Math.random() < def.secondaryChance) {
         building.stored[def.secondaryProductId] = (building.stored[def.secondaryProductId] || 0) + 1;
       }
+      bumpBuildingVersion(state);
     }
   }
 }
@@ -52,5 +54,6 @@ export function upgradeBuilding(state, buildingType, deductGold, playerGold) {
 
   deductGold(cost);
   building.level += 1;
+  bumpBuildingVersion(state);
   return { success: true, cost, newLevel: building.level };
 }

@@ -4,7 +4,7 @@
 // js/systems/market.js
 import { CROPS } from "../data/crops.js";
 import { TREES } from "../data/trees.js";
-import { addItem, hasItem, removeItem, countInventorySlots, isInventoryFull, hasItemInInventory } from "../state.js";
+import { addItem, hasItem, removeItem, countInventorySlots, isInventoryFull, hasItemInInventory, bumpBuildingVersion } from "../state.js";
 import { getWeather } from "./weather.js";
 import { BUILDING_TYPES, capacityForLevel } from "../data/animals.js";
 import { getCalendarBuyMultiplier, getCalendarSellMultiplier } from "./calendarTrade.js";
@@ -24,6 +24,15 @@ const MARKET_ANIMALS = [
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function fisherYatesPartial(arr, n) {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result.slice(0, n);
 }
 
 /** Yeni market döngüsü: kategori bazlı slot sistemi. */
@@ -52,7 +61,7 @@ export function generateMarketCycle(state) {
   }
 
   const seedPool = CROPS.map((c) => ({ itemId: c.id, seedId: `${c.id}_tohum`, basePrice: c.buyPrice }));
-  const shuffledSeeds = [...seedPool].sort(() => Math.random() - 0.5).slice(0, seedSlots);
+  const shuffledSeeds = fisherYatesPartial(seedPool, seedSlots);
   for (const entry of shuffledSeeds) {
     let priceMultiplier = rollPriceMultiplier();
     if (calendarActive) {
@@ -71,7 +80,7 @@ export function generateMarketCycle(state) {
   }
 
   const saplingPool = TREES.map((t) => ({ itemId: t.id, seedId: `${t.id}_fidan`, basePrice: t.buyPrice }));
-  const shuffledSaplings = [...saplingPool].sort(() => Math.random() - 0.5).slice(0, saplingSlots);
+  const shuffledSaplings = fisherYatesPartial(saplingPool, saplingSlots);
   for (const entry of shuffledSaplings) {
     let priceMultiplier = rollPriceMultiplier();
     if (calendarActive) {
@@ -174,6 +183,7 @@ export function buyOneSeed(state, listingIndex, deductGold, playerGold) {
     const building = state.buildings[listing.buildingType];
     deductGold(cost);
     building.population += 1;
+    bumpBuildingVersion(state);
   } else {
     if (!hasItemInInventory(state, listing.seedId) && isInventoryFull(state)) {
       return { success: false, reason: "envanter_dolu" };
@@ -212,6 +222,7 @@ export function buyAllSeeds(state, listingIndex, deductGold, playerGold) {
     deductGold(totalCost);
     building.population += 1;
     listing.remaining = 0;
+    bumpBuildingVersion(state);
     return { success: true, cost: totalCost, qty: 1 };
   }
 

@@ -73,7 +73,7 @@ export function refreshOpenTooltip() {
   }
 
   ttRoot.innerHTML = buildHTML(content);
-  positionTooltip(activeTriggerEl);
+  requestAnimationFrame(() => positionTooltip(activeTriggerEl));
 }
 
 function handleMouseOver(e) {

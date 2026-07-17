@@ -66,12 +66,14 @@ export function createInitialState() {
       },
       maxSlots: 5,
       queue: [],
+      _version: 0,
     },
 
     field: { slots: createFieldSlots() },
     orchard: { slots: createOrchardSlots() },
 
     buildings: {
+      _version: 0,
       hive: { level: 0, population: 0, sinceLastProduction: 0, stored: { bal: 0 } },
       coop: { level: 0, population: 0, sinceLastProduction: 0, stored: { yumurta: 0, tavuk_eti: 0 } },
       barn: { level: 0, population: 0, sinceLastProduction: 0, stored: { sut: 0, inek_eti: 0 } },
@@ -97,6 +99,16 @@ export function createInitialState() {
 }
 
 // ---- Envanter yardımcıları ----
+
+/* ─────────────────── Envanter versiyonunu artır ─────────────────── */
+export function bumpInventoryVersion(state) {
+  state.inventory._version = (state.inventory._version || 0) + 1;
+}
+
+/* ─────────────────── Bina versiyonunu artır ─────────────────── */
+export function bumpBuildingVersion(state) {
+  state.buildings._version = (state.buildings._version || 0) + 1;
+}
 
 /* ─────────────────── Envanter slotlarını say ─────────────────── */
 export function countInventorySlots(state) {
@@ -126,15 +138,18 @@ export function addItem(state, itemId, qty, meta) {
   if (items[itemId]) {
     items[itemId].quantity += qty;
     if (meta) items[itemId].meta = { ...(items[itemId].meta || {}), ...meta };
+    bumpInventoryVersion(state);
     return { success: true, queued: false };
   }
 
   if (isInventoryFull(state)) {
     state.inventory.queue.push({ itemId, qty, meta, source: meta?.source || "unknown" });
+    bumpInventoryVersion(state);
     return { success: false, queued: true };
   }
 
   items[itemId] = { quantity: qty, meta: meta || {} };
+  bumpInventoryVersion(state);
   return { success: true, queued: false };
 }
 
@@ -159,7 +174,10 @@ export function processQueue(state) {
     }
   }
 
-  if (consumed > 0) queue.splice(0, consumed);
+  if (consumed > 0) {
+    queue.splice(0, consumed);
+    bumpInventoryVersion(state);
+  }
 
   return added;
 }
@@ -176,6 +194,7 @@ export function removeItem(state, itemId, qty) {
   if (!entry || entry.quantity < qty) return false;
   entry.quantity -= qty;
   if (entry.quantity <= 0) delete state.inventory.items[itemId];
+  bumpInventoryVersion(state);
   return true;
 }
 
@@ -211,5 +230,6 @@ export function removeAnimalProduct(state, productId, qty) {
   const current = found.building.stored[productId] || 0;
   if (current < qty) return false;
   found.building.stored[productId] = current - qty;
+  bumpBuildingVersion(state);
   return true;
 }

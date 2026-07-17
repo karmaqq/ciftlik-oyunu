@@ -6,9 +6,9 @@
 
 import { setContext, getContext, flushSave, inventoryFilter } from "./shared.js";
 import { renderHeader, updateHeaderTick } from "./header.js";
-import { renderInventory } from "./inventory.js";
+import { renderInventory, updateInventoryTick } from "./inventory.js";
 import { fieldGridHTML, orchardGridHTML, updateSlotsTick } from "./field.js";
-import { renderBuildingTab } from "./buildings.js";
+import { renderBuildingTab, updateBuildingTabTick } from "./buildings.js";
 import { marketHTML } from "./market.js";
 import { craftingHTML } from "./crafting.js";
 import { renderUpgrades } from "./upgrades.js";
@@ -23,6 +23,7 @@ let _lastRenderedMiddleTab = "";
 let _lastRenderedRightTab = "";
 let _prevMarketSeconds = -1;
 let _overflowRafId = 0;
+let _tickCounter = 0;
 
 /* ─────────────────── Arayüzü başlat ─────────────────── */
 export function initUI(state, log, newGameCallback) {
@@ -64,16 +65,20 @@ export function tickUpdate() {
   const ctx = getContext();
   const s = ctx.state;
 
+  _tickCounter++;
+
   updateHeaderTick();
-  renderInventory();
-  syncFeatureTabs();
+  updateInventoryTick();
 
   const middleTab = s.ui.activeMiddleTab;
   if (middleTab === "field" || middleTab === "orchard") {
     updateSlotsTick(middleTab);
   }
 
-  renderBuildingTab();
+  const anyBuilding = s.features.hive || s.features.coop || s.features.barn;
+  if (anyBuilding) {
+    updateBuildingTabTick();
+  }
 
   const rightTab = s.ui.activeRightTab;
   if (rightTab === "market") {
@@ -85,7 +90,9 @@ export function tickUpdate() {
     _prevMarketSeconds = cur;
   }
 
-  checkLabelOverflow();
+  if (_tickCounter % 3 === 0) {
+    checkLabelOverflow();
+  }
   refreshOpenTooltip();
 }
 

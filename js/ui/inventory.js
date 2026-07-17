@@ -10,6 +10,17 @@ import { getInventoryList, FILTERS } from "../systems/inventory.js";
 import { getContext, inventoryFilter, inventorySort, quickSellMode } from "./shared.js";
 
 const highlightedRecipes = new Set();
+let _lastInvVersion = -1;
+
+/* ─────────────────── Tick bazlı envanter güncellemesi ─────────────────── */
+export function updateInventoryTick() {
+  const ctx = getContext();
+  const state = ctx.state;
+  const ver = state.inventory._version || 0;
+  if (ver === _lastInvVersion) return;
+  _lastInvVersion = ver;
+  renderInventory();
+}
 
 /* ─────────────────── Envanter tariflerini vurgula ─────────────────── */
 export function highlightRecipes(itemId, highlight) {

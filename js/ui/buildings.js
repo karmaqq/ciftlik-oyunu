@@ -8,6 +8,21 @@ import { BUILDING_TYPES, capacityForLevel } from "../data/animals.js";
 import { itemDisplayName, itemEmoji } from "../data/items.js";
 import { getContext } from "./shared.js";
 
+let _lastBldVersion = -1;
+let _lastBldTab = null;
+
+/* ─────────────────── Tick bazlı bina paneli güncellemesi ─────────────────── */
+export function updateBuildingTabTick() {
+  const ctx = getContext();
+  const state = ctx.state;
+  const type = state.ui.activeBuildingTab;
+  const ver = state.buildings._version || 0;
+  if (ver === _lastBldVersion && type === _lastBldTab) return;
+  _lastBldVersion = ver;
+  _lastBldTab = type;
+  renderBuildingTab();
+}
+
 /* ─────────────────── Bina sekmesini oluştur ─────────────────── */
 export function renderBuildingTab() {
   const ctx = getContext();
