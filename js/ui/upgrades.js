@@ -19,43 +19,63 @@ import {
 } from "../systems/upgrades.js";
 import {
   INVENTORY_TOTAL_SLOTS, FIELD_TOTAL_SLOTS, ORCHARD_TOTAL_SLOTS,
+  FIELD_START_UNLOCKED, ORCHARD_START_UNLOCKED,
   MAX_MARKET_SLOTS_PER_CATEGORY,
 } from "../state.js";
 import { getContext, gold } from "./shared.js";
 
 /* ---------- Kare seviye kutucuğu üreticisi ---------- */
-// Görsel kutucuk sayısı max seviyeyi 12'yi aşarsa sıkıştırır.
-function renderBoxes(current, max, isReachable, maxed, isFeature) {
+// gridCols: sütun sayısı (5 = 2 sıra×5, 6 = 1 sıra×6). Yoksa esnek flex.
+// Faz-1 (1-10): boş kutu siyah, öneri mavi parlar, satın alınan mavi olur.
+// Faz-2 (11-20):1. kutudan itibaren mavi kutular mora döner, öneri mor parlar.
+function renderBoxes(current, max, isReachable, maxed, isFeature, gridCols) {
   if (isFeature) return "";
-  let boxCount = max;
-  let step = 1;
-  if (max > 12) {
-    step = Math.ceil(max / 12);
-    boxCount = Math.ceil(max / step);
+
+  const hasPhases = gridCols > 0 && max > gridCols;
+  const boxCount = hasPhases ? gridCols * 2 : (gridCols || max);
+
+  let phase = 1;
+  let filledCount = current;
+  if (hasPhases) {
+    if (current === 0 || current < boxCount) {
+      phase = 1;
+      filledCount = current;
+    } else {
+      phase = 2;
+      filledCount = current - boxCount;
+    }
   }
 
   const boxes = [];
   for (let i = 0; i < boxCount; i++) {
-    const filledLevel = (i + 1) * step;
     const isCrown = maxed && i === boxCount - 1;
-    const isFilled = current >= filledLevel;
-    const isNext = isReachable && !maxed && current >= i * step && current < filledLevel;
+    const isNext = isReachable && !maxed && i === filledCount;
 
+    // Faz-2'de: dolu olanlar mor, öneri mor parlar, diğer mavi (1. fazdan)
     let cls = "skill-box";
-    if (isCrown) cls += " is-crown";
-    else if (isFilled) cls += " is-filled";
-    else if (isNext) cls += " is-next";
+    if (isCrown) {
+      cls += " is-crown";
+    } else if (hasPhases && phase === 2) {
+      if (i < filledCount) cls += " is-filled phase-2";
+      else if (isNext) cls += " is-next phase-2-next";
+      else cls += " is-filled";
+    } else {
+      if (i < filledCount) cls += " is-filled";
+      else if (isNext) cls += " is-next";
+    }
     boxes.push(`<span class="${cls}"></span>`);
   }
-  return `<div class="skill-boxes">${boxes.join("")}</div>`;
+
+  const containerCls = gridCols ? `skill-boxes skill-boxes--${gridCols}` : "skill-boxes";
+  return `<div class="${containerCls}">${boxes.join("")}</div>`;
 }
 
 /* ---------- Tek node render ---------- */
-// data: { emoji, title, hint, cost, action, current, max, locked, lockedBy, maxed, isFeature, extraAttr }
+// data: { emoji, title, hint, cost, action, current, max, locked, lockedBy, maxed, isFeature, extraAttr, gridCols }
 function renderNode(data) {
   const {
     emoji, title, hint, action, current = 0, max = 0,
-    locked = false, lockedBy = "", maxed = false, isFeature = false, extraAttr = ""
+    locked = false, lockedBy = "", maxed = false, isFeature = false, extraAttr = "", gridCols = 0
   } = data;
 
   const cost = data.cost;
@@ -86,8 +106,8 @@ function renderNode(data) {
       <div class="skill-node-icon">${emoji}</div>
       <span class="skill-node-title">${title}</span>
       <span class="skill-node-hint">${hint}</span>
+      ${renderBoxes(current, max, isReachable, maxed, isFeature, gridCols || 0)}
       ${costHTML}
-      ${renderBoxes(current, max, isReachable, maxed, isFeature)}
     </div>
   `;
 }
@@ -170,23 +190,26 @@ export function renderUpgrades() {
   capacityNodes.push(renderNode({
     emoji: "📦", title: "Envanter", hint: "Eşya kapasitesi",
     cost: inventorySlotCost(state.inventory.maxSlots), action: "upgradeInventory",
-    current: state.inventory.maxSlots, max: INVENTORY_TOTAL_SLOTS,
+    current: state.inventory.maxSlots - 5, max: INVENTORY_TOTAL_SLOTS - 5,
     maxed: state.inventory.maxSlots >= INVENTORY_TOTAL_SLOTS,
+    gridCols: 5,
   }));
 
   capacityNodes.push(renderNode({
     emoji: "🌾", title: "Tarla", hint: "Ekim alanı",
     cost: fieldSlotUnlockCost(fieldUnlocked), action: "upgradeField",
-    current: fieldUnlocked, max: FIELD_TOTAL_SLOTS,
+    current: fieldUnlocked - FIELD_START_UNLOCKED, max: FIELD_TOTAL_SLOTS - FIELD_START_UNLOCKED,
     maxed: fieldUnlocked >= FIELD_TOTAL_SLOTS,
+    gridCols: 5,
   }));
 
   if (features.orchard) {
     capacityNodes.push(renderNode({
       emoji: "🌳", title: "Bahçe", hint: "Ağaç alanı",
       cost: orchardSlotUnlockCost(orchardUnlocked), action: "upgradeOrchard",
-      current: orchardUnlocked, max: ORCHARD_TOTAL_SLOTS,
+      current: orchardUnlocked - ORCHARD_START_UNLOCKED, max: ORCHARD_TOTAL_SLOTS - ORCHARD_START_UNLOCKED,
       maxed: orchardUnlocked >= ORCHARD_TOTAL_SLOTS,
+      gridCols: 6,
     }));
   }
 

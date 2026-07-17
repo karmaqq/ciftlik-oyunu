@@ -15,7 +15,8 @@ const MAX_HARVESTS = 5;
 /** Slotun toplam büyüme hızı çarpanını hesaplar (tarla seviyesi + hava). */
 /* ─────────────────── Büyüme çarpanı hesapla ─────────────────── */
 export function computeGrowthMultiplier(slot, weatherState) {
-  const levelBonus = 1 + FIELD_LEVEL_SPEED_BONUS * slot.level;
+  const slotBonus = Math.min(FIELD_LEVEL_SPEED_BONUS * slot.level, 0.99);
+  const levelBonus = 1 / (1 - slotBonus);
   const weatherBonus = getWeather(weatherState).growthSpeedMultiplier;
   return levelBonus * weatherBonus;
 }
@@ -89,7 +90,7 @@ export function harvestSlot(state, slotIndex) {
     return { success: true, cropId: crop.id, qty, rarity, depleted: true };
   }
 
-  if (crop.harvestCycle === "recurring") {
+  if (crop.recurringIntervalDays) {
     slot.planted.elapsedSeconds = 0;
     slot.planted.requiredSeconds = daysToSeconds(crop.recurringIntervalDays);
     slot.planted.ready = false;

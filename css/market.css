@@ -143,31 +143,12 @@
 }
 
 .mr-btn .btn-price {
-  position: absolute;
-  opacity: 0;
-  transform: translateY(8px);
-  font-size: var(--font-sm);
-  color: var(--gold);
-}
-
-.mr-btn.show-price .btn-label {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-.mr-btn.show-price .btn-price {
-  opacity: 1;
-  transform: translateY(0);
+  display: none;
 }
 
 .mr-btn:disabled .btn-label {
   opacity: 1;
   transform: translateY(0);
-}
-
-.mr-btn:disabled .btn-price {
-  opacity: 0;
-  transform: translateY(8px);
 }
 
 .mr-soldout {

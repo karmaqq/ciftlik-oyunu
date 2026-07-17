@@ -5,6 +5,7 @@
 
 import { getContext } from "./shared.js";
 import { resolveItem, itemDisplayName, itemSellPrice } from "../data/items.js";
+import { baseItemIdOf } from "../state.js";
 import { getCrop } from "../data/crops.js";
 import { getTree } from "../data/trees.js";
 import { getCalendarSellMultiplier, getCalendarBuyMultiplier, getCalendarTradeInfo, SEASON_SELL_MULTIPLIER, SEASON_BUY_MULTIPLIER, SEASON_SAPLING_MULTIPLIER, WEATHER_BUY_MULTIPLIER, WEATHER_RARITY_BONUS } from "../systems/calendarTrade.js";
@@ -62,8 +63,9 @@ function buildProduct(ds, detail) {
   const itemId = ds.ttItem;
   if (!itemId) return null;
 
-  const resolved = resolveItem(itemId);
-  const entry = ctx.state.inventory.items[itemId];
+  const baseId = baseItemIdOf(itemId);
+  const resolved = resolveItem(baseId);
+  const entry = ctx.state.inventory.items[itemId] || ctx.state.inventory.items[baseId];
   const meta = entry && entry.meta ? entry.meta : {};
   const rarity = meta.rarity || "normal";
 
@@ -78,7 +80,7 @@ function buildProduct(ds, detail) {
 
   let title = resolved.name;
   if (rarity !== "normal" && rarityLabel[rarity]) {
-    title += ` <span class="${rarityClass[rarity]}">(${rarityLabel[rarity]})</span>`;
+    title = `<span class="${rarityClass[rarity]}">${resolved.name}</span> (${rarityLabel[rarity]})`;
   }
 
   const rows = [];
@@ -218,7 +220,7 @@ function buildMarketInfo(ds, detail) {
       rows.push({ label: "Büyüme", value: `${cropOrTree.growthDays} gün` });
       rows.push({ label: "Sezon", value: cropOrTree.seasons.join(", ") });
       rows.push({ label: "Satış", value: `${cropOrTree.sellPrice} 🪙` });
-      rows.push({ label: "Hasat", value: cropOrTree.harvestCycle === "once" ? "Tek seferlik" : "Tekrarlayan" });
+      rows.push({ label: "Hasat", value: cropOrTree.recurringIntervalDays ? `Tekrarlayan (${cropOrTree.recurringIntervalDays}g aralık)` : "Tek seferlik" });
     }
   } else {
     const def = BUILDING_TYPES[listing.buildingType];
@@ -352,7 +354,8 @@ function buildGrowingSlot(ds, detail) {
   const cropId = planted.cropId;
   const name = itemDisplayName(cropId);
 
-  const levelBonus = 1 + FIELD_LEVEL_SPEED_BONUS * slot.level;
+  const slotBonus = Math.min(FIELD_LEVEL_SPEED_BONUS * slot.level, 0.99);
+  const levelBonus = 1 / (1 - slotBonus);
   const weather = getWeather(ctx.state.weather);
   const weatherBonus = weather.growthSpeedMultiplier;
   const totalMult = levelBonus * weatherBonus;
@@ -361,6 +364,7 @@ function buildGrowingSlot(ds, detail) {
   rows.push({ label: "İlerleme", value: `%${pct}` });
   rows.push({ label: "Kalan süre", value: `${min}dk ${sec}sn` });
   rows.push({ label: "Büyüme hızı", value: `×${totalMult.toFixed(2)}` });
+  rows.push({ label: "Kalan hasat", value: `${planted.harvestsLeft} / ${planted.maxHarvests}` });
 
   if (detail) {
     const detailRows = [];
@@ -397,6 +401,7 @@ function buildReadySlot(ds, detail) {
 
   const rows = [];
   rows.push({ label: "Durum", value: "Hasada hazır" });
+  rows.push({ label: "Kalan hasat", value: `${slot.planted.harvestsLeft} / ${slot.planted.maxHarvests}` });
 
   if (detail) {
     const weather = getWeather(ctx.state.weather);
@@ -572,7 +577,12 @@ function buildCraftRecipe(ds, detail) {
   const rows = [];
 
   const inputLines = recipe.inputs.map((inp) => {
-    const entry = ctx.state.inventory.items[inp.id];
+    const entry = ctx.state.inventory.items[inp.id] || (() => {
+      for (const [k, v] of Object.entries(ctx.state.inventory.items)) {
+        if (baseItemIdOf(k) === inp.id) return v;
+      }
+      return null;
+    })();
     const have = entry ? entry.quantity : 0;
     const enough = have >= inp.qty;
     const cls = enough ? "tt-positive" : "tt-negative";

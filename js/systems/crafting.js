@@ -3,7 +3,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/crafting.js
 import { getRecipe } from "../data/recipes.js";
-import { addItem, removeItem, hasAnimalProduct, removeAnimalProduct, getAnimalProductCount } from "../state.js";
+import { addItem, removeItem, hasAnimalProduct, removeAnimalProduct, getAnimalProductCount, countItemQuantity } from "../state.js";
 
 function consumeForCraft(state, itemId, qty) {
   let remaining = qty;
@@ -24,7 +24,7 @@ export function canCraft(state, recipeId, times = 1) {
   if (!state.unlockedTiers.includes(recipe.tier)) return false;
   return recipe.inputs.every((input) => {
     const needed = input.qty * times;
-    const invQty = state.inventory.items[input.id]?.quantity || 0;
+    const invQty = countItemQuantity(state, input.id);
     const animalQty = getAnimalProductCount(state, input.id);
     return (invQty + animalQty) >= needed;
   });

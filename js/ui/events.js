@@ -24,14 +24,13 @@ import {
 } from "../systems/upgrades.js";
 import { BUILDING_TYPES } from "../data/animals.js";
 import {
-  removeAnimalProduct, getAnimalProductCount,
+  removeAnimalProduct, getAnimalProductCount, baseItemIdOf,
 } from "../state.js";
 import {
   getContext, gold, deductGold, addGold, reasonText,
   scheduleSave, inventoryFilter, inventorySort,
   setInventoryFilter, setInventorySort,
   quickSellMode, saveQuickSellMode,
-  setHoveredMarketBtn,
 } from "./shared.js";
 import { highlightRecipes } from "./inventory.js";
 
@@ -39,6 +38,17 @@ let _dragItemId = null;
 let _hoverTimer = null;
 let _hoverSlotEl = null;
 let _plantedDuringDrag = false;
+
+const RARITY_LABEL = { nadir: "Nadir", legendary: "Efsanevi", gizemli: "Gizemli" };
+const RARITY_CLASS = { nadir: "tt-rarity-nadir", legendary: "tt-rarity-legendary", gizemli: "tt-rarity-gizemli" };
+
+function rarityLogName(itemId, meta) {
+  const baseId = baseItemIdOf(itemId);
+  const name = itemDisplayName(baseId);
+  const r = meta && meta.rarity;
+  if (r && RARITY_LABEL[r]) return `<span class="${RARITY_CLASS[r]}">${RARITY_LABEL[r]} ${name}</span>`;
+  return name;
+}
 
 let _renderFn = null;
 
@@ -85,7 +95,7 @@ export function wireStaticEvents(renderFn) {
     if (!cell) return;
     const itemId = cell.dataset.itemId;
     if (!itemId) return;
-    const baseId = itemId.replace(/_tohum$/, "").replace(/_fidan$/, "");
+    const baseId = baseItemIdOf(itemId).replace(/_tohum$/, "").replace(/_fidan$/, "");
     highlightRecipes(baseId, true);
   });
 
@@ -166,23 +176,6 @@ export function wireStaticEvents(renderFn) {
 
   document.getElementById("right-panel").addEventListener("click", (e) => handleRightPanelAction(e));
 
-  document.getElementById("right-panel").addEventListener("mouseover", (e) => {
-    const btn = e.target.closest(".mr-btn[data-action]");
-    if (!btn) return;
-    const idx = btn.dataset.index;
-    const act = btn.dataset.action;
-    setHoveredMarketBtn(`${idx}-${act}`);
-  });
-
-  document.getElementById("right-panel").addEventListener("mouseout", (e) => {
-    const btn = e.target.closest(".mr-btn[data-action]");
-    if (!btn) return;
-    const related = e.relatedTarget;
-    if (!related || !btn.contains(related)) {
-      setHoveredMarketBtn(null);
-    }
-  });
-
   document.getElementById("sell-tabs").addEventListener("click", (e) => {
     const modeBtn = e.target.closest("[data-sell-mode]");
     if (modeBtn) {
@@ -216,7 +209,7 @@ export function wireStaticEvents(renderFn) {
         removeAnimalProduct(ctx.state, itemId, qty);
         const total = price * qty;
         addGold(total);
-        ctx.log(`${itemEmoji(itemId)} ${qty} adet ${itemDisplayName(itemId)} satıldı, +${total}🪙`, "trade");
+        ctx.log(`${itemEmoji(itemId)} ${qty} adet ${rarityLogName(itemId)} satıldı, +${total}🪙`, "trade");
       } else {
         const itemEntry = ctx.state.inventory.items[itemId];
         if (!itemEntry) return;
@@ -226,7 +219,7 @@ export function wireStaticEvents(renderFn) {
         const price = itemSellPrice(itemId, itemMeta);
         const result = sellItem(ctx.state, itemId, qty, price, addGold, itemMeta);
         if (result.success) {
-          ctx.log(`${itemEmoji(itemId)} ${qty} adet ${itemDisplayName(itemId)} satıldı, +${result.total}🪙`, "trade");
+          ctx.log(`${itemEmoji(itemId)} ${qty} adet ${rarityLogName(itemId, itemMeta)} satıldı, +${result.total}🪙`, "trade");
         } else {
           ctx.log(`Satış başarısız: ${reasonText(result.reason)}`, "error");
         }
@@ -255,7 +248,7 @@ function handlePlotClick(e) {
     const result = kind === "field" ? harvestSlot(ctx.state, index) : harvestOrchardSlot(ctx.state, index);
     if (result.success) {
       const cropId = result.cropId || result.treeId;
-      ctx.log(`Hasat: ${itemEmoji(cropId)} ${itemDisplayName(cropId)}${result.rarity !== "normal" ? ` (${result.rarity}!)` : ""}`, "success");
+      ctx.log(`Hasat: ${itemEmoji(cropId)} ${rarityLogName(cropId, { rarity: result.rarity })}`, "success");
     }
   } else if (action === "unlock") {
     const unlockedCount = unlockedCountFn(kind);

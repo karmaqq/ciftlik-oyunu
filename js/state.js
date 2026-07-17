@@ -56,7 +56,7 @@ function createOrchardSlots() {
 /* ─────────────────── İlk oyun durumunu oluştur ─────────────────── */
 export function createInitialState() {
   return {
-    player: { gold: 250, level: 1, xp: 0 },
+    player: { gold: 500 },
     time: createInitialTime(),
     weather: createInitialWeather(),
 
@@ -105,6 +105,38 @@ export function bumpInventoryVersion(state) {
   state.inventory._version = (state.inventory._version || 0) + 1;
 }
 
+/**
+ * Envanter anahtarı hesaplar.
+ * rarity normal veya tanımsızsa düz itemId, değilse `itemId__rarity` döner.
+ * Tohum/fidan gibi rarity'siz ürünler her zaman düz anahtar kullanır.
+ */
+function inventoryKey(itemId, rarity) {
+  if (rarity && rarity !== "normal") return `${itemId}__${rarity}`;
+  return itemId;
+}
+
+/**
+ * Anahtardan temel ürün ID'sini çıkarır. "kabak__nadir" → "kabak"
+ */
+export function baseItemIdOf(key) {
+  const idx = key.indexOf("__");
+  return idx >= 0 ? key.slice(0, idx) : key;
+}
+
+/**
+ *_envanterdeki tüm entry'leri temel ID'ye göre bulur.
+ * Tam eşleşme varsa onu da dahil eder (düz anahtar uyumluluğu için).
+ */
+function findInventoryEntries(items, baseId) {
+  const result = [];
+  for (const [key, entry] of Object.entries(items)) {
+    if (key === baseId || baseItemIdOf(key) === baseId) {
+      result.push({ key, entry });
+    }
+  }
+  return result;
+}
+
 /* ─────────────────── Bina versiyonunu artır ─────────────────── */
 export function bumpBuildingVersion(state) {
   state.buildings._version = (state.buildings._version || 0) + 1;
@@ -122,7 +154,7 @@ export function isInventoryFull(state) {
 
 /* ─────────────────── Envanterde öğe var mı ─────────────────── */
 export function hasItemInInventory(state, itemId) {
-  return !!state.inventory.items[itemId];
+  return findInventoryEntries(state.inventory.items, itemId).length > 0;
 }
 
 /**
@@ -134,10 +166,12 @@ export function addItem(state, itemId, qty, meta) {
   if (qty <= 0) return { success: false, queued: false, reason: "eksik_miktar" };
 
   const items = state.inventory.items;
+  const rarity = meta?.rarity;
+  const key = inventoryKey(itemId, rarity);
 
-  if (items[itemId]) {
-    items[itemId].quantity += qty;
-    if (meta) items[itemId].meta = { ...(items[itemId].meta || {}), ...meta };
+  if (items[key]) {
+    items[key].quantity += qty;
+    if (meta) items[key].meta = { ...(items[key].meta || {}), ...meta };
     bumpInventoryVersion(state);
     return { success: true, queued: false };
   }
@@ -148,7 +182,7 @@ export function addItem(state, itemId, qty, meta) {
     return { success: false, queued: true };
   }
 
-  items[itemId] = { quantity: qty, meta: meta || {} };
+  items[key] = { quantity: qty, meta: meta || {} };
   bumpInventoryVersion(state);
   return { success: true, queued: false };
 }
@@ -184,18 +218,54 @@ export function processQueue(state) {
 
 /* ─────────────────── Öğe var mı ─────────────────── */
 export function hasItem(state, itemId, qty) {
-  const entry = state.inventory.items[itemId];
-  return !!entry && entry.quantity >= qty;
+  const entries = findInventoryEntries(state.inventory.items, itemId);
+  if (entries.length === 0) return false;
+  const total = entries.reduce((sum, e) => sum + e.entry.quantity, 0);
+  return total >= qty;
+}
+
+/* ─────────────────── Envanterdeki toplam miktar ─────────────────── */
+export function countItemQuantity(state, itemId) {
+  const entries = findInventoryEntries(state.inventory.items, itemId);
+  return entries.reduce((sum, e) => sum + e.entry.quantity, 0);
 }
 
 /* ─────────────────── Öğeyi kaldır ─────────────────── */
 export function removeItem(state, itemId, qty) {
-  const entry = state.inventory.items[itemId];
-  if (!entry || entry.quantity < qty) return false;
-  entry.quantity -= qty;
-  if (entry.quantity <= 0) delete state.inventory.items[itemId];
-  bumpInventoryVersion(state);
-  return true;
+  const items = state.inventory.items;
+
+  // Tam eşleşme varsa onu kullan (düz anahtar veya belirli bir nadirlik)
+  if (items[itemId] && items[itemId].quantity >= qty) {
+    items[itemId].quantity -= qty;
+    if (items[itemId].quantity <= 0) delete items[itemId];
+    bumpInventoryVersion(state);
+    return true;
+  }
+
+  // Temel ID ile tüm varyansları bul, önce normal olanları tüket
+  const entries = findInventoryEntries(items, itemId);
+  if (entries.length === 0) return false;
+
+  entries.sort((a, b) => {
+    const ra = (a.entry.meta?.rarity || "normal") === "normal" ? 0 : 1;
+    const rb = (b.entry.meta?.rarity || "normal") === "normal" ? 0 : 1;
+    return ra - rb;
+  });
+
+  let remaining = qty;
+  for (const { key, entry } of entries) {
+    if (remaining <= 0) break;
+    const take = Math.min(remaining, entry.quantity);
+    entry.quantity -= take;
+    remaining -= take;
+    if (entry.quantity <= 0) delete items[key];
+  }
+
+  if (remaining < qty) {
+    bumpInventoryVersion(state);
+    return true;
+  }
+  return false;
 }
 
 // ---- Hayvan ürünü (building storage) yardımcıları ----

@@ -17,7 +17,8 @@ const MAX_HARVESTS = 5;
 
 /* ─────────────────── Bahçe büyüme çarpanı ─────────────────── */
 export function computeOrchardGrowthMultiplier(slot, weatherState) {
-  const levelBonus = 1 + FIELD_LEVEL_SPEED_BONUS * slot.level;
+  const slotBonus = Math.min(FIELD_LEVEL_SPEED_BONUS * slot.level, 0.99);
+  const levelBonus = 1 / (1 - slotBonus);
   const weatherBonus = getWeather(weatherState).growthSpeedMultiplier;
   return levelBonus * weatherBonus;
 }
@@ -89,7 +90,7 @@ export function harvestOrchardSlot(state, slotIndex) {
     return { success: true, treeId: tree.id, qty, rarity, depleted: true };
   }
 
-  if (tree.harvestCycle === "recurring") {
+  if (tree.recurringIntervalDays) {
     slot.planted.elapsedSeconds = 0;
     slot.planted.requiredSeconds = daysToSeconds(tree.recurringIntervalDays);
     slot.planted.ready = false;

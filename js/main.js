@@ -63,7 +63,7 @@ function main() {
       const existing = logEl.querySelector(`[data-merge-key="${mergeKey}"]`);
       if (existing) {
         const msgEl = existing.querySelector(`.${cls}`);
-        if (msgEl) msgEl.textContent = message;
+        if (msgEl) msgEl.innerHTML = message;
         return;
       }
     }
@@ -78,7 +78,7 @@ function main() {
     iconSpan.textContent = icon;
     const msgSpan = document.createElement("span");
     msgSpan.className = cls;
-    msgSpan.textContent = message;
+    msgSpan.innerHTML = message;
     line.appendChild(timeSpan);
     line.appendChild(iconSpan);
     line.appendChild(msgSpan);

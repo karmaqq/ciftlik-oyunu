@@ -9,7 +9,7 @@ import { getTree } from "../data/trees.js";
 import { BUILDING_TYPES, capacityForLevel } from "../data/animals.js";
 import { itemDisplayName, itemEmoji } from "../data/items.js";
 import { getBulkDiscountPercent } from "../systems/market.js";
-import { getContext, gold, hoveredMarketBtn } from "./shared.js";
+import { getContext, gold } from "./shared.js";
 
 /* ─────────────────── Market HTML içeriği ─────────────────── */
 export function marketHTML() {
@@ -86,7 +86,7 @@ export function marketHTML() {
       const bulkCost = isAnimal ? 0 : Math.round(unitPrice * listing.remaining * (1 - discountPct / 100));
 
       function btnClass(idx, action, cost) {
-        let cls = hoveredMarketBtn === `${idx}-${action}` ? "mr-btn show-price" : "mr-btn";
+        let cls = "mr-btn";
         if (gold() < cost || capacityFull) cls += " insufficient-gold";
         return cls;
       }

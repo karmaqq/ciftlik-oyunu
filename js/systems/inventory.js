@@ -6,6 +6,7 @@ import { CROPS } from "../data/crops.js";
 import { TREES } from "../data/trees.js";
 import { RECIPES } from "../data/recipes.js";
 import { resolveItem } from "../data/items.js";
+import { baseItemIdOf } from "../state.js";
 
 const CROP_IDS = new Set(CROPS.map((c) => c.id));
 const TREE_IDS = new Set(TREES.map((t) => t.id));
@@ -26,12 +27,16 @@ export const FILTERS = ["tümü", "tohum", "fidan", "üretim"];
 
 /* ─────────────────── Envanter listesini al ─────────────────── */
 export function getInventoryList(state, { filter = "tümü", sortBy = "isim" } = {}) {
-  let list = Object.entries(state.inventory.items).map(([itemId, data]) => ({
-    itemId,
-    quantity: data.quantity,
-    meta: data.meta || {},
-    category: categorizeItem(itemId),
-  }));
+  let list = Object.entries(state.inventory.items).map(([key, data]) => {
+    const baseId = baseItemIdOf(key);
+    return {
+      itemId: key,
+      baseItemId: baseId,
+      quantity: data.quantity,
+      meta: data.meta || {},
+      category: categorizeItem(baseId),
+    };
+  });
 
   if (filter === "üretim") {
     list = list.filter((i) => i.category === "uretim");
@@ -41,7 +46,7 @@ export function getInventoryList(state, { filter = "tümü", sortBy = "isim" } =
 
   switch (sortBy) {
     case "deger":
-      list.sort((a, b) => (resolveItem(b.itemId).sellPrice || 0) - (resolveItem(a.itemId).sellPrice || 0));
+      list.sort((a, b) => (resolveItem(b.baseItemId).sellPrice || 0) - (resolveItem(a.baseItemId).sellPrice || 0));
       break;
     case "miktar":
       list.sort((a, b) => b.quantity - a.quantity);

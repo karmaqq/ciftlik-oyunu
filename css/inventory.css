@@ -162,3 +162,18 @@
   background: #1a1820;
   border-color: #302e44;
 }
+
+.cell.rarity-nadir {
+  border-color: #4488ff;
+  box-shadow: 0 0 6px rgba(68, 136, 255, 0.3);
+}
+
+.cell.rarity-legendary {
+  border-color: #ff8800;
+  box-shadow: 0 0 6px rgba(255, 136, 0, 0.3);
+}
+
+.cell.rarity-gizemli {
+  border-color: #cc44ff;
+  box-shadow: 0 0 6px rgba(204, 68, 255, 0.3);
+}

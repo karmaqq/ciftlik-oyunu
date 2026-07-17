@@ -58,13 +58,16 @@ export function renderInventory() {
   for (let i = 0; i < maxSlots; i++) {
     const entry = list[i];
     if (!entry) { cells.push(`<div class="cell empty"></div>`); continue; }
-    const name = itemDisplayName(entry.itemId);
+    const name = itemDisplayName(entry.baseItemId);
+    const rarity = entry.meta && entry.meta.rarity;
+    const rarityClass = rarity && rarity !== "normal" ? ` tt-rarity-${rarity}` : "";
+    const rarityBorderClass = rarity && rarity !== "normal" ? ` rarity-${rarity}` : "";
 
     cells.push(`
-      <div class="cell item ${entry.category}" draggable="true" data-item-id="${entry.itemId}" data-tt="product" data-tt-item="${entry.itemId}">
-        <span class="cell-emoji">${itemEmoji(entry.itemId)}</span>
+      <div class="cell item ${entry.category}${rarityBorderClass}" draggable="true" data-item-id="${entry.itemId}" data-tt="product" data-tt-item="${entry.itemId}">
+        <span class="cell-emoji">${itemEmoji(entry.baseItemId)}</span>
         <span class="qty">${entry.quantity}</span>
-        <span class="label"><span class="label-text">${name}</span></span>
+        <span class="label"><span class="label-text${rarityClass}">${name}</span></span>
       </div>
     `);
   }
