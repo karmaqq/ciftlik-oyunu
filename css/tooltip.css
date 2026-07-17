@@ -1,23 +1,24 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*                       Tooltip görsel stilleri                              */
+/*                       Tooltip görsel stilleri — TT Pro v1.0                */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ═══ ANA KUTU ═══ */
 #tt-root {
   position: fixed;
   z-index: var(--z-tooltip);
-  min-width: 180px;
-  max-width: 280px;
+  min-width: 200px;
+  max-width: 320px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  padding: var(--space-sm) var(--space-md);
+  padding: 10px 14px;
   font-size: var(--font-xs);
   color: var(--text-primary);
   pointer-events: none;
   opacity: 0;
-  transform: translateY(-2px);
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  transform: translateY(-4px);
+  transition: opacity 150ms ease, transform 150ms ease;
   word-break: break-word;
 }
 
@@ -26,55 +27,118 @@
   transform: translateY(0);
 }
 
-.tt-title {
+/* ═══ BAŞLIK ═══ */
+.tt-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tt-header-icon {
+  font-size: 1.15em;
+  line-height: 1;
+}
+
+.tt-header-name {
   font-weight: 700;
-  margin-bottom: var(--space-xs);
+  font-size: var(--font-sm);
   color: var(--text-primary);
 }
 
+/* ═══ BADGE ═══ */
+.tt-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tt-badge-nadir {
+  background: rgba(68, 136, 255, 0.15);
+  color: var(--rarity-nadir);
+  border: 1px solid rgba(68, 136, 255, 0.3);
+}
+
+.tt-badge-legendary {
+  background: rgba(255, 136, 0, 0.15);
+  color: var(--rarity-legendary);
+  border: 1px solid rgba(255, 136, 0, 0.3);
+}
+
+.tt-badge-gizemli {
+  background: rgba(204, 68, 255, 0.15);
+  color: var(--rarity-gizemli);
+  border: 1px solid rgba(204, 68, 255, 0.3);
+}
+
+/* ═══ GRUP ═══ */
+.tt-group {
+  margin-bottom: 6px;
+}
+
+.tt-group + .tt-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ═══ SATIR ═══ */
 .tt-row {
   display: flex;
   justify-content: space-between;
-  gap: var(--space-md);
+  align-items: center;
+  gap: 12px;
   padding: 1px 0;
+  line-height: 1.4;
 }
 
 .tt-row-label {
   color: var(--text-secondary);
+  flex-shrink: 0;
 }
 
+.tt-row-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ═══ AYIRICI ═══ */
 .tt-divider {
   height: 1px;
   background: var(--border-subtle);
-  margin: var(--space-xs) 0;
+  margin: 4px 0;
 }
 
+/* ═══ İPUCU ═══ */
 .tt-footer {
-  margin-top: var(--space-xs);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
   color: var(--text-muted);
+  font-style: italic;
   font-size: 12px;
 }
 
-.tt-positive {
-  color: #4ade80;
-}
+/* ═══ RENK SINIFLARI ═══ */
+.tt-positive { color: #4ade80; }
+.tt-negative { color: var(--danger); }
+.tt-neutral  { color: var(--text-secondary); }
 
-.tt-negative {
-  color: var(--danger);
-}
+/* ═══ NADİRLİK RENKLERİ ═══ */
+.tt-rarity-nadir     { color: var(--rarity-nadir); }
+.tt-rarity-legendary { color: var(--rarity-legendary); }
+.tt-rarity-gizemli   { color: var(--rarity-gizemli); }
 
-.tt-neutral {
-  color: var(--text-secondary);
-}
-
-.tt-rarity-nadir {
-  color: var(--rarity-nadir);
-}
-
-.tt-rarity-legendary {
-  color: var(--rarity-legendary);
-}
-
-.tt-rarity-gizemli {
-  color: var(--rarity-gizemli);
+/* ═══ İPUCU METİN ═══ */
+.tt-hint {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 12px;
 }

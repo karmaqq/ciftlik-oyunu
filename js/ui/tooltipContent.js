@@ -1,15 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*                    Tooltip içerik üreticileri                              */
+/*                    Tooltip içerik üreticileri — TT Pro v1.0                */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 // js/ui/tooltipContent.js
+// Her tooltip tipi için { title, badge, badgeClass, groups, footer } üretir.
 
 import { getContext } from "./shared.js";
-import { resolveItem, itemDisplayName, itemSellPrice } from "../data/items.js";
+import { resolveItem, itemDisplayName, itemSellPrice, itemEmoji } from "../data/items.js";
 import { baseItemIdOf } from "../state.js";
 import { getCrop } from "../data/crops.js";
 import { getTree } from "../data/trees.js";
-import { getCalendarSellMultiplier, getCalendarBuyMultiplier, getCalendarTradeInfo, SEASON_SELL_MULTIPLIER, SEASON_BUY_MULTIPLIER, SEASON_SAPLING_MULTIPLIER, WEATHER_BUY_MULTIPLIER, WEATHER_RARITY_BONUS } from "../systems/calendarTrade.js";
-import { getWeather, RARITY_SELL_MULTIPLIER, WEATHER_TYPES } from "../systems/weather.js";
+import { getCalendarSellMultiplier, getCalendarBuyMultiplier, getCalendarTradeInfo, SEASON_SELL_MULTIPLIER, SEASON_BUY_MULTIPLIER, SEASON_SAPLING_MULTIPLIER, WEATHER_BUY_MULTIPLIER } from "../systems/calendarTrade.js";
+import { getWeather, RARITY_SELL_MULTIPLIER } from "../systems/weather.js";
 import { currentSeason } from "../systems/time.js";
 import { getBulkDiscountPercent, MARKET_REFRESH_SECONDS } from "../systems/market.js";
 import { FIELD_LEVEL_SPEED_BONUS, MAX_FIELD_LEVEL } from "../state.js";
@@ -21,7 +22,8 @@ import { RECIPES } from "../data/recipes.js";
 import { canCraft } from "../systems/crafting.js";
 import { seasonEmoji, quickSellMode } from "./shared.js";
 
-/* ─────────────────── İşaretli yüzde ─────────────────── */
+/* ─────────────────── Yardımcı fonksiyonlar ─────────────────── */
+
 function signedPercent(value) {
   const pct = Math.round(value * 100);
   if (pct === 0) return `<span class="tt-neutral">%0</span>`;
@@ -29,36 +31,50 @@ function signedPercent(value) {
   return `<span class="${cls}">%${Math.abs(pct)}</span>`;
 }
 
+function seasonName(s) {
+  return { ilkbahar: "İlkbahar", yaz: "Yaz", sonbahar: "Sonbahar", kış: "Kış" }[s] || s;
+}
+
+function growTypeText(cropId) {
+  const crop = getCrop(cropId);
+  const tree = getTree(cropId);
+  if (crop) return crop.harvestCycle === "recurring" ? `Tekrarlı (${crop.recurringIntervalDays}g aralık)` : "Tek hasat";
+  if (tree) return `Tekrarlı (${tree.recurringIntervalDays || tree.growthDays}g aralık)`;
+  return "";
+}
+
 /* ─────────────────── Tooltip içeriğini çöz ─────────────────── */
-export function resolveTooltipContent(dataset, detail) {
+export function resolveTooltipContent(dataset) {
   const type = dataset.tt;
   if (!type) return null;
 
   switch (type) {
-    case "product": return buildProduct(dataset, detail);
-    case "marketBuy": return buildMarketBuy(dataset, detail);
-    case "marketInfo": return buildMarketInfo(dataset, detail);
-    case "soldOut": return buildSoldOut(dataset, detail);
-    case "bulkDiscount": return buildBulkDiscount(dataset, detail);
-    case "emptySlot": return buildEmptySlot(dataset, detail);
-    case "lockedSlot": return buildLockedSlot(dataset, detail);
-    case "growingSlot": return buildGrowingSlot(dataset, detail);
-    case "readySlot": return buildReadySlot(dataset, detail);
-    case "slotUpgrade": return buildSlotUpgrade(dataset, detail);
-    case "upgradeNode": return buildUpgradeNode(dataset, detail);
-    case "featureNode": return buildFeatureNode(dataset, detail);
-    case "calendarInfo": return buildCalendarInfo(dataset, detail);
-    case "craftRecipe": return buildCraftRecipe(dataset, detail);
-    case "quickSellZone": return buildQuickSellZone(dataset, detail);
-    case "buildingCapacity": return buildBuildingCapacity(dataset, detail);
-    case "inventoryFilter": return buildInventoryFilter(dataset, detail);
-    case "inventorySort": return buildInventorySort(dataset, detail);
+    case "product": return buildProduct(dataset);
+    case "marketBuy": return buildMarketBuy(dataset);
+    case "marketInfo": return buildMarketInfo(dataset);
+    case "soldOut": return buildSoldOut(dataset);
+    case "bulkDiscount": return buildBulkDiscount(dataset);
+    case "emptySlot": return buildEmptySlot(dataset);
+    case "lockedSlot": return buildLockedSlot(dataset);
+    case "growingSlot": return buildGrowingSlot(dataset);
+    case "readySlot": return buildReadySlot(dataset);
+    case "slotUpgrade": return buildSlotUpgrade(dataset);
+    case "upgradeNode": return buildUpgradeNode(dataset);
+    case "featureNode": return buildFeatureNode(dataset);
+    case "calendarInfo": return buildCalendarInfo(dataset);
+    case "craftRecipe": return buildCraftRecipe(dataset);
+    case "quickSellZone": return buildQuickSellZone(dataset);
+    case "buildingCapacity": return buildBuildingCapacity(dataset);
+    case "inventoryFilter": return buildInventoryFilter(dataset);
+    case "inventorySort": return buildInventorySort(dataset);
     default: return null;
   }
 }
 
-/* ─────────────────── Ürün (envanter, tarla, bina) ─────────────────── */
-function buildProduct(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    1. ÜRÜN (envanter, tarla, bina)                         */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildProduct(ds) {
   const ctx = getContext();
   const itemId = ds.ttItem;
   if (!itemId) return null;
@@ -71,67 +87,88 @@ function buildProduct(ds, detail) {
 
   const baseSellPrice = resolved.sellPrice;
   const effectivePrice = meta.sellPriceOverride || baseSellPrice;
-
   const calendarMult = getCalendarSellMultiplier(ctx.state, rarity);
   const finalPrice = Math.round(effectivePrice * calendarMult);
 
   const rarityLabel = { nadir: "Nadir", legendary: "Efsanevi", gizemli: "Gizemli" };
-  const rarityClass = { nadir: "tt-rarity-nadir", legendary: "tt-rarity-legendary", gizemli: "tt-rarity-gizemli" };
+  const rarityClass = { nadir: "tt-badge-nadir", legendary: "tt-badge-legendary", gizemli: "tt-badge-gizemli" };
 
-  let title = resolved.name;
-  if (rarity !== "normal" && rarityLabel[rarity]) {
-    title = `<span class="${rarityClass[rarity]}">${resolved.name}</span> (${rarityLabel[rarity]})`;
+  const title = `${itemEmoji(itemId)} ${resolved.name}`;
+  const badge = rarity !== "normal" && rarityLabel[rarity] ? rarityLabel[rarity] : null;
+  const badgeClass = rarity !== "normal" ? (rarityClass[rarity] || "") : "";
+
+  const groups = [];
+  const calendarActive = ctx.state.features && ctx.state.features.calendar;
+  const isSeedLike = itemId.endsWith("_tohum") || itemId.endsWith("_fidan");
+  const isKaliteli = (entry && entry.category === "kaliteli") || false;
+
+  // GROUP 1 — Tohum/Fidan bilgisi
+  if (isSeedLike) {
+    const cropId = baseId;
+    const crop = getCrop(cropId);
+    const tree = getTree(cropId);
+    const plant = crop || tree;
+    if (plant) {
+      const tohumRows = [];
+      const seasons = plant.seasons.map((s) => `${seasonEmoji(s)}${seasonName(s)}`).join(" ");
+      tohumRows.push({ label: "Sezon", value: seasons });
+      tohumRows.push({ label: "Büyüme", value: `${plant.growthDays} gün` });
+      tohumRows.push({ label: "Hasat", value: growTypeText(cropId) });
+      groups.push({ rows: tohumRows });
+    }
   }
 
-  const rows = [];
-  rows.push({ label: "Satış fiyatı", value: `${finalPrice} 🪙` });
+  // GROUP 2 — Fiyat zinciri (taban → çarpanlar → kâr/zarar → satış → toplam)
+  const priceRows = [];
+  priceRows.push({ label: "Taban fiyat", value: `${baseSellPrice} 🪙` });
 
+  if (rarity !== "normal" && meta.sellPriceOverride) {
+    const rarityPct = (RARITY_SELL_MULTIPLIER[rarity] || 1) - 1;
+    if (rarityPct !== 0) {
+      priceRows.push({ label: `Nadirlik bonusu`, value: signedPercent(rarityPct) });
+    }
+  }
+  if (calendarActive) {
+    const season = currentSeason(ctx.state.time);
+    const seasonOnlyMult = SEASON_SELL_MULTIPLIER[season] || 1;
+    const seasonPct = seasonOnlyMult - 1;
+    if (seasonPct !== 0) {
+      priceRows.push({ label: `Mevsim (${seasonName(season)})`, value: signedPercent(seasonPct) });
+    }
+    const weather = getWeather(ctx.state.weather);
+    if (rarity !== "normal" && weather.id === "gokkusagi") {
+      priceRows.push({ label: `Hava (${weather.name})`, value: signedPercent(-0.20) });
+    }
+  }
+
+  const diff = finalPrice - baseSellPrice;
+  if (diff > 0) {
+    priceRows.push({ label: "Kâr", value: `<span class="tt-positive">+${diff} 🪙</span>` });
+  } else if (diff < 0) {
+    priceRows.push({ label: "Zarar", value: `<span class="tt-negative">-${Math.abs(diff)} 🪙</span>` });
+  }
+  priceRows.push({ label: "Satış fiyatı", value: `${finalPrice} 🪙` });
   if (entry && entry.quantity > 1) {
     const totalValue = Math.round(effectivePrice * entry.quantity * calendarMult);
-    rows.push({ label: `Toplam (${entry.quantity}x)`, value: `${totalValue} 🪙` });
+    priceRows.push({ label: `Toplam (${entry.quantity}x)`, value: `${totalValue} 🪙` });
+  }
+  groups.push({ rows: priceRows });
+
+  // FOOTER
+  let footer = null;
+  if (isSeedLike) {
+    footer = "Sürükle ve ek";
+  } else if (isKaliteli) {
+    footer = "4x fiyatına satılır";
   }
 
-  if (detail) {
-    const calendarActive = ctx.state.features && ctx.state.features.calendar;
-    const detailRows = [];
-    detailRows.push({ label: "Taban fiyat", value: `${baseSellPrice} 🪙` });
-
-    if (rarity !== "normal" && meta.sellPriceOverride) {
-      const rarityPct = (RARITY_SELL_MULTIPLIER[rarity] || 1) - 1;
-      detailRows.push({ label: `Nadirlik (${rarityLabel[rarity] || rarity})`, value: signedPercent(rarityPct) });
-    }
-
-    if (calendarActive) {
-      const season = currentSeason(ctx.state.time);
-      const seasonName = { ilkbahar: "İlkbahar", yaz: "Yaz", sonbahar: "Sonbahar", kış: "Kış" };
-      const seasonOnlyMult = SEASON_SELL_MULTIPLIER[season] || 1;
-      const seasonPct = seasonOnlyMult - 1;
-      if (seasonPct !== 0) {
-        detailRows.push({ label: `Mevsim (${seasonName[season] || season})`, value: signedPercent(seasonPct) });
-      }
-
-      const weather = getWeather(ctx.state.weather);
-      if (rarity !== "normal" && weather.id === "gokkusagi") {
-        detailRows.push({ label: "Hava (Gökkuşağı)", value: signedPercent(-0.20) });
-      }
-    }
-
-    detailRows.push("---");
-    detailRows.push({ label: "Nihai", value: `${finalPrice} 🪙` });
-
-    if (entry && entry.quantity > 1) {
-      const totalValue = Math.round(effectivePrice * entry.quantity * calendarMult);
-      detailRows.push({ label: `Toplam (${entry.quantity}x)`, value: `${totalValue} 🪙` });
-    }
-
-    return { title, rows: detailRows };
-  }
-
-  return { title, rows };
+  return { title, badge, badgeClass, groups, footer };
 }
 
-/* ─────────────────── Market alım butonu ─────────────────── */
-function buildMarketBuy(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    2. MARKET ALIM BUTONU                                   */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildMarketBuy(ds) {
   const ctx = getContext();
   const index = Number(ds.ttIndex);
   const mode = ds.ttMode || "single";
@@ -143,66 +180,61 @@ function buildMarketBuy(ds, detail) {
   const unitPrice = listing.pricePerUnit;
   const basePrice = listing.basePrice;
   const discountPct = getBulkDiscountPercent();
+  const calendarActive = ctx.state.features && ctx.state.features.calendar;
 
-  const rows = [];
+  const groups = [];
 
-  if (mode === "single") {
-    rows.push({ label: "1 adet", value: `${unitPrice} 🪙` });
-  } else {
-    const bulkCost = Math.round(unitPrice * listing.remaining * (1 - discountPct / 100));
-    rows.push({ label: `${listing.remaining} adet`, value: `${bulkCost} 🪙` });
-    rows.push({ label: "Toplu indirim", value: `<span class="tt-positive">%${discountPct}</span>` });
-  }
+  // GROUP 1 — Fiyat zinciri (taban → çarpanlar → kâr/zarar → alım → toplu)
+  const priceRows = [];
+  if (calendarActive && basePrice > 0) {
+    priceRows.push({ label: "Taban fiyat", value: `${basePrice} 🪙` });
 
-  if (detail) {
-    const detailRows = [];
-
-    detailRows.push({ label: "Taban fiyat", value: `${basePrice} 🪙` });
-
-    const calendarActive = ctx.state.features && ctx.state.features.calendar;
-
-    if (calendarActive && basePrice > 0) {
-      const category = listing.category === "sapling" ? "sapling" : "seed";
-      const calendarMult = getCalendarBuyMultiplier(ctx.state, category);
-      const rollResult = calendarMult !== 0 ? listing.priceMultiplier / calendarMult : listing.priceMultiplier;
-      const rollDiff = rollResult - 1;
-      detailRows.push({ label: "Piyasa dalgalanması", value: signedPercent(rollDiff) });
-
-      if (!isAnimal) {
-        const season = currentSeason(ctx.state.time);
-        const seasonName = { ilkbahar: "İlkbahar", yaz: "Yaz", sonbahar: "Sonbahar", kış: "Kış" };
-
-        const seasonTable = category === "sapling" ? SEASON_SAPLING_MULTIPLIER : SEASON_BUY_MULTIPLIER;
-        const seasonOnlyMult = seasonTable[season] || 1.0;
-
-        if (seasonOnlyMult !== 1.0) {
-          detailRows.push({ label: `Mevsim (${seasonName[season] || season})`, value: signedPercent(seasonOnlyMult - 1) });
-        }
-
-        const weather = getWeather(ctx.state.weather);
-        const weatherMult = WEATHER_BUY_MULTIPLIER[weather.id] || 1.0;
-        if (weatherMult !== 1.0) {
-          detailRows.push({ label: `Hava (${weather.name})`, value: signedPercent(weatherMult - 1) });
-        }
+    const category = listing.category === "sapling" ? "sapling" : "seed";
+    const calendarMult = getCalendarBuyMultiplier(ctx.state, category);
+    const rollResult = calendarMult !== 0 ? listing.priceMultiplier / calendarMult : listing.priceMultiplier;
+    const rollDiff = rollResult - 1;
+    if (rollDiff !== 0) {
+      priceRows.push({ label: "Piyasa", value: signedPercent(rollDiff) });
+    }
+    if (!isAnimal) {
+      const season = currentSeason(ctx.state.time);
+      const seasonTable = category === "sapling" ? SEASON_SAPLING_MULTIPLIER : SEASON_BUY_MULTIPLIER;
+      const seasonOnlyMult = seasonTable[season] || 1.0;
+      if (seasonOnlyMult !== 1.0) {
+        priceRows.push({ label: `Mevsim (${seasonName(season)})`, value: signedPercent(seasonOnlyMult - 1) });
+      }
+      const weather = getWeather(ctx.state.weather);
+      const weatherMult = WEATHER_BUY_MULTIPLIER[weather.id] || 1.0;
+      if (weatherMult !== 1.0) {
+        priceRows.push({ label: `Hava (${weather.name})`, value: signedPercent(weatherMult - 1) });
       }
     }
 
-    detailRows.push("---");
-    if (mode === "single") {
-      detailRows.push({ label: "1 adet", value: `${unitPrice} 🪙` });
-    } else {
-      const bulkCost2 = Math.round(unitPrice * listing.remaining * (1 - discountPct / 100));
-      detailRows.push({ label: `${listing.remaining} adet`, value: `${bulkCost2} 🪙` });
+    const diff = unitPrice - basePrice;
+    if (diff > 0) {
+      priceRows.push({ label: "Zarar", value: `<span class="tt-negative">-${diff} 🪙</span>` });
+    } else if (diff < 0) {
+      priceRows.push({ label: "Kâr", value: `<span class="tt-positive">+${Math.abs(diff)} 🪙</span>` });
     }
-
-    return { title: name, rows: detailRows };
   }
 
-  return { title: name, rows };
+  if (mode === "single") {
+    priceRows.push({ label: "Alım fiyatı", value: `${unitPrice} 🪙` });
+  } else {
+    const bulkCost = Math.round(unitPrice * listing.remaining * (1 - discountPct / 100));
+    priceRows.push({ label: "Alım fiyatı", value: `${unitPrice} 🪙` });
+    priceRows.push({ label: `${listing.remaining} adet`, value: `${bulkCost} 🪙` });
+    priceRows.push({ label: "Toplu indirim", value: `<span class="tt-positive">%${discountPct}</span>` });
+  }
+  groups.push({ rows: priceRows });
+
+  return { title: name, badge: null, badgeClass: "", groups, footer: null };
 }
 
-/* ─────────────────── Market ürün bilgisi (satır) ─────────────────── */
-function buildMarketInfo(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    3. MARKET ÜRÜN BİLGİSİ (satır)                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildMarketInfo(ds) {
   const ctx = getContext();
   const index = Number(ds.ttIndex);
   const listing = ctx.state.market.listings[index];
@@ -210,107 +242,121 @@ function buildMarketInfo(ds, detail) {
 
   const isAnimal = listing.category === "animal";
   const name = isAnimal ? listing.label : itemDisplayName(listing.seedId);
+  const calendarActive = ctx.state.features && ctx.state.features.calendar;
 
-  const rows = [];
+  const groups = [];
 
+  // GROUP 1 — Ürün Detayı
+  const detayRows = [];
   if (!isAnimal) {
     const cropOrTree = listing.category === "seed" ? getCrop(listing.itemId) : getTree(listing.itemId);
     if (cropOrTree) {
-      rows.push({ label: "Tier", value: `${cropOrTree.tier}` });
-      rows.push({ label: "Büyüme", value: `${cropOrTree.growthDays} gün` });
-      rows.push({ label: "Sezon", value: cropOrTree.seasons.join(", ") });
-      rows.push({ label: "Satış", value: `${cropOrTree.sellPrice} 🪙` });
-      rows.push({ label: "Hasat", value: cropOrTree.recurringIntervalDays ? `Tekrarlayan (${cropOrTree.recurringIntervalDays}g aralık)` : "Tek seferlik" });
+      detayRows.push({ label: "Tier", value: `${cropOrTree.tier}` });
+      detayRows.push({ label: "Büyüme", value: `${cropOrTree.growthDays} gün` });
+      detayRows.push({ label: "Satış", value: `${cropOrTree.sellPrice} 🪙` });
+      detayRows.push({ label: "Hasat", value: growTypeText(listing.itemId) });
     }
   } else {
     const def = BUILDING_TYPES[listing.buildingType];
     if (def) {
-      rows.push({ label: "Bina", value: def.name });
-      rows.push({ label: "Üretim", value: `${def.baseProductionDays} günde 1 ${itemDisplayName(def.productId)}` });
-    }
-  }
-
-  if (detail) {
-    const calendarActive = ctx.state.features && ctx.state.features.calendar;
-
-    if (calendarActive && listing.basePrice > 0) {
-      rows.push("---");
-      rows.push({ label: "Taban fiyat", value: `${listing.basePrice} 🪙` });
-
-      const category = listing.category === "sapling" ? "sapling" : "seed";
-      const calendarMult = getCalendarBuyMultiplier(ctx.state, category);
-      const rollResult = calendarMult !== 0 ? listing.priceMultiplier / calendarMult : listing.priceMultiplier;
-      const rollDiff = rollResult - 1;
-      rows.push({ label: "Piyasa dalgalanması", value: signedPercent(rollDiff) });
-
-      if (!isAnimal) {
-        const season = currentSeason(ctx.state.time);
-        const seasonName = { ilkbahar: "İlkbahar", yaz: "Yaz", sonbahar: "Sonbahar", kış: "Kış" };
-        const seasonTable = category === "sapling" ? SEASON_SAPLING_MULTIPLIER : SEASON_BUY_MULTIPLIER;
-        const seasonOnlyMult = seasonTable[season] || 1.0;
-        if (seasonOnlyMult !== 1.0) {
-          rows.push({ label: `Mevsim (${seasonName[season] || season})`, value: signedPercent(seasonOnlyMult - 1) });
-        }
-
-        const weather = getWeather(ctx.state.weather);
-        const weatherMult = WEATHER_BUY_MULTIPLIER[weather.id] || 1.0;
-        if (weatherMult !== 1.0) {
-          rows.push({ label: `Hava (${weather.name})`, value: signedPercent(weatherMult - 1) });
-        }
+      detayRows.push({ label: "Bina", value: def.name });
+      detayRows.push({ label: "Üretim", value: `${def.baseProductionDays} günde 1 ${itemDisplayName(def.productId)}` });
+      if (def.secondaryProductId) {
+        detayRows.push({ label: "Nadiren", value: `${itemEmoji(def.secondaryProductId)} ${itemDisplayName(def.secondaryProductId)}` });
       }
     }
-
-    rows.push("---");
-    rows.push({ label: "Birim fiyat", value: `${listing.pricePerUnit} 🪙` });
-  } else {
-    rows.push("---");
-    rows.push({ label: "Birim fiyat", value: `${listing.pricePerUnit} 🪙` });
   }
+  groups.push({ rows: detayRows });
 
-  return { title: name, rows };
+  // GROUP 2 — Fiyat zinciri (taban → kâr/zarar → birim fiyat → adet satış)
+  const priceRows = [];
+  if (calendarActive && listing.basePrice > 0) {
+    priceRows.push({ label: "Taban fiyat", value: `${listing.basePrice} 🪙` });
+    const diff = listing.pricePerUnit - listing.basePrice;
+    if (diff > 0) {
+      priceRows.push({ label: "Zarar", value: `<span class="tt-negative">-${diff} 🪙</span>` });
+    } else if (diff < 0) {
+      priceRows.push({ label: "Kâr", value: `<span class="tt-positive">+${Math.abs(diff)} 🪙</span>` });
+    }
+  }
+  priceRows.push({ label: "Birim fiyat", value: `${listing.pricePerUnit} 🪙` });
+  if (isAnimal && listing.remaining > 0) {
+    const totalSale = listing.pricePerUnit * listing.remaining;
+    priceRows.push({ label: `${listing.remaining} adet satış`, value: `${totalSale} 🪙` });
+  }
+  groups.push({ rows: priceRows });
+
+  return { title: name, badge: null, badgeClass: "", groups, footer: null };
 }
 
-/* ─────────────────── Tükenmiş market satırı ─────────────────── */
-function buildSoldOut(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    4. TÜKENMİŞ MARKET SATIRI                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildSoldOut(ds) {
   const ctx = getContext();
   const remaining = Math.max(0, MARKET_REFRESH_SECONDS - Math.round(ctx.state.market.secondsSinceRefresh));
+
   return {
     title: "Tükendi",
-    rows: [{ label: "Market yenilenme", value: `${remaining}s` }],
+    badge: null,
+    badgeClass: "",
+    groups: [
+      { rows: [{ label: "Yenilenme", value: `${remaining}s` }] },
+    ],
+    footer: "Bu döngüde gelmeyecek",
   };
 }
 
-/* ─────────────────── Toplu indirim bilgisi ─────────────────── */
-function buildBulkDiscount(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    5. TOPLU İNDİRİM BİLGİSİ                              */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildBulkDiscount(ds) {
   const discountPct = getBulkDiscountPercent();
+
   return {
     title: "Toplu Alım",
-    rows: [{ label: "İndirim", value: `<span class="tt-positive">%${discountPct}</span>` }],
+    badge: null,
+    badgeClass: "",
+    groups: [
+      { rows: [{ label: "İndirim", value: `<span class="tt-positive">%${discountPct}</span>` }] },
+    ],
     footer: "Tüm kalan stoğu tek seferde indirimli alırsın.",
   };
 }
 
-/* ─────────────────── Boş dikilebilir slot ─────────────────── */
-function buildEmptySlot(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    6. BOŞ DİKİLEBİLİR SLOT                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildEmptySlot(ds) {
   const ctx = getContext();
   const kind = ds.ttKind || "field";
   const index = Number(ds.ttIndex);
   const slots = kind === "field" ? ctx.state.field.slots : ctx.state.orchard.slots;
   const slot = slots[index];
+  const kindName = kind === "field" ? "Tarla" : "Bahçe";
+  const actionHint = kind === "field" ? "Tohum sürükle" : "Fidan sürükle";
 
   const rows = [];
-  rows.push({ label: "Bilgi", value: "Ekmek için bir tohum sürükleyin" });
+  rows.push({ label: "Durum", value: "Boş" });
 
   if (slot && slot.level > 0) {
     const speedBonus = FIELD_LEVEL_SPEED_BONUS * slot.level;
     rows.push({ label: "Hız bonusu", value: `<span class="tt-positive">%${Math.round(speedBonus * 100)}</span>` });
   }
 
-  return { title: kind === "field" ? "Tarla Slotu" : "Bahçe Slotu", rows };
+  return {
+    title: `${kindName} Slot #${index + 1}`,
+    badge: null,
+    badgeClass: "",
+    groups: [{ rows }],
+    footer: actionHint,
+  };
 }
 
-/* ─────────────────── Kilitli slot ─────────────────── */
-function buildLockedSlot(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    7. KİLİTLİ SLOT                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildLockedSlot(ds) {
   const ctx = getContext();
   const kind = ds.ttKind || "field";
   const index = Number(ds.ttIndex);
@@ -318,26 +364,42 @@ function buildLockedSlot(ds, detail) {
   const unlockedCount = slots.filter((s) => s.unlocked).length;
   const cost = kind === "field" ? fieldSlotUnlockCost(unlockedCount) : orchardSlotUnlockCost(unlockedCount);
 
-  const rows = [];
-  rows.push({ label: "Açma maliyeti", value: `${cost} 🪙` });
+  const groups = [];
 
+  // GROUP 1 — Maliyet
+  const maliyetRows = [];
+  maliyetRows.push({ label: "Maliyet", value: `${cost} 🪙` });
   const playerGold = Math.floor(ctx.state.player.gold);
   if (playerGold < cost) {
-    rows.push({ label: "", value: `<span class="tt-negative">Yetersiz altın</span>` });
+    maliyetRows.push({ label: "", value: `<span class="tt-negative">Yetersiz altın</span>` });
   }
+  groups.push({ rows: maliyetRows });
 
-  if (detail) {
+  // GROUP 2 — Formül (takvim açıksa)
+  if (ctx.state.features && ctx.state.features.calendar) {
     const base = kind === "field" ? 15 : 20;
     const rate = kind === "field" ? "1.2" : "1.25";
-    rows.push("---");
-    rows.push({ label: "Formül", value: `${base} 🪙 × ${rate}^açık_sayı` });
+    groups.push({
+      rows: [
+        { label: "Formül", value: `${base} × ${rate}^n` },
+        { label: "Açık slot", value: `${unlockedCount}` },
+      ],
+    });
   }
 
-  return { title: "Kilitli Slot", rows };
+  return {
+    title: "Kilitli Slot",
+    badge: null,
+    badgeClass: "",
+    groups,
+    footer: "Açmak için tıkla",
+  };
 }
 
-/* ─────────────────── Büyümekte olan bitki ─────────────────── */
-function buildGrowingSlot(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    8. BÜYÜMEKTE OLAN BİTKİ                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildGrowingSlot(ds) {
   const ctx = getContext();
   const kind = ds.ttKind || "field";
   const index = Number(ds.ttIndex);
@@ -350,9 +412,7 @@ function buildGrowingSlot(ds, detail) {
   const remainingSec = Math.max(0, Math.round(planted.requiredSeconds - planted.elapsedSeconds));
   const min = Math.floor(remainingSec / 60);
   const sec = remainingSec % 60;
-
-  const cropId = planted.cropId;
-  const name = itemDisplayName(cropId);
+  const name = itemDisplayName(planted.cropId);
 
   const slotBonus = Math.min(FIELD_LEVEL_SPEED_BONUS * slot.level, 0.99);
   const levelBonus = 1 / (1 - slotBonus);
@@ -360,35 +420,38 @@ function buildGrowingSlot(ds, detail) {
   const weatherBonus = weather.growthSpeedMultiplier;
   const totalMult = levelBonus * weatherBonus;
 
-  const rows = [];
-  rows.push({ label: "İlerleme", value: `%${pct}` });
-  rows.push({ label: "Kalan süre", value: `${min}dk ${sec}sn` });
-  rows.push({ label: "Büyüme hızı", value: `×${totalMult.toFixed(2)}` });
-  rows.push({ label: "Kalan hasat", value: `${planted.harvestsLeft} / ${planted.maxHarvests}` });
+  const groups = [];
 
-  if (detail) {
-    const detailRows = [];
-    detailRows.push({ label: "İlerleme", value: `%${pct}` });
-    detailRows.push({ label: "Kalan süre", value: `${min}dk ${sec}sn` });
-    detailRows.push("---");
-    if (slot.level > 0) {
-      const slotPct = FIELD_LEVEL_SPEED_BONUS * slot.level;
-      detailRows.push({ label: "Slot seviyesi", value: signedPercent(slotPct) });
-    }
-    if (weatherBonus !== 1) {
-      detailRows.push({ label: `Hava (${weather.name})`, value: signedPercent(weatherBonus - 1) });
-    }
-    detailRows.push("---");
-    detailRows.push({ label: "Toplam hız", value: `×${totalMult.toFixed(2)}` });
+  // GROUP 1 — İlerleme
+  groups.push({
+    rows: [
+      { label: "İlerleme", value: `%${pct}` },
+      { label: "Kalan süre", value: `${min}dk ${sec}sn` },
+    ],
+  });
 
-    return { title: name, rows: detailRows };
+  // GROUP 2 — Hız
+  const hizRows = [];
+  hizRows.push({ label: "Büyüme hızı", value: `×${totalMult.toFixed(2)}` });
+  hizRows.push({ label: "Kalan hasat", value: `${planted.harvestsLeft} / ${planted.maxHarvests}` });
+  groups.push({ rows: hizRows });
+
+  // GROUP 3 — Hava Etkisi (sıfır değilse)
+  if (weatherBonus !== 1) {
+    groups.push({
+      rows: [
+        { label: `Hava (${weather.name})`, value: signedPercent(weatherBonus - 1) },
+      ],
+    });
   }
 
-  return { title: name, rows };
+  return { title: name, badge: null, badgeClass: "", groups, footer: null };
 }
 
-/* ─────────────────── Hasada hazır slot ─────────────────── */
-function buildReadySlot(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    9. HASADA HAZIR SLOT                                   */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildReadySlot(ds) {
   const ctx = getContext();
   const kind = ds.ttKind || "field";
   const index = Number(ds.ttIndex);
@@ -396,29 +459,37 @@ function buildReadySlot(ds, detail) {
   const slot = slots[index];
   if (!slot || !slot.planted) return null;
 
-  const cropId = slot.planted.cropId;
-  const name = itemDisplayName(cropId);
+  const name = itemDisplayName(slot.planted.cropId);
+  const groups = [];
 
-  const rows = [];
-  rows.push({ label: "Durum", value: "Hasada hazır" });
-  rows.push({ label: "Kalan hasat", value: `${slot.planted.harvestsLeft} / ${slot.planted.maxHarvests}` });
+  // GROUP 1 — Durum
+  groups.push({
+    rows: [
+      { label: "Durum", value: `<span class="tt-positive">Hasat hazır!</span>` },
+      { label: "Kalan hasat", value: `${slot.planted.harvestsLeft} / ${slot.planted.maxHarvests}` },
+    ],
+  });
 
-  if (detail) {
-    const weather = getWeather(ctx.state.weather);
-    const rc = weather.rarityChance || {};
-    if (rc.nadir || rc.legendary || rc.gizemli) {
-      rows.push("---");
-      if (rc.nadir) rows.push({ label: "Nadir şans", value: `%${Math.round(rc.nadir * 100)}` });
-      if (rc.legendary) rows.push({ label: "Efsanevi şans", value: `%${Math.round(rc.legendary * 100)}` });
-      if (rc.gizemli) rows.push({ label: "Gizemli şans", value: `%${Math.round(rc.gizemli * 100)}` });
-    }
+  // GROUP 2 — Nadirlik Şansları (varsa)
+  const weather = getWeather(ctx.state.weather);
+  const rc = weather.rarityChance || {};
+  const hasRarity = rc.nadir || rc.legendary || rc.gizemli;
+
+  if (hasRarity) {
+    const nadirRows = [];
+    if (rc.nadir) nadirRows.push({ label: "Nadir şans", value: `<span class="tt-rarity-nadir">%${Math.round(rc.nadir * 100)}</span>` });
+    if (rc.legendary) nadirRows.push({ label: "Efsanevi şans", value: `<span class="tt-rarity-legendary">%${Math.round(rc.legendary * 100)}</span>` });
+    if (rc.gizemli) nadirRows.push({ label: "Gizemli şans", value: `<span class="tt-rarity-gizemli">%${Math.round(rc.gizemli * 100)}</span>` });
+    groups.push({ rows: nadirRows });
   }
 
-  return { title: name, rows };
+  return { title: name, badge: null, badgeClass: "", groups, footer: "Tıklayarak hasat et" };
 }
 
-/* ─────────────────── Slot seviye yükseltme butonu ─────────────────── */
-function buildSlotUpgrade(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    10. SLOT HIZ GELİŞTİRME                                */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildSlotUpgrade(ds) {
   const ctx = getContext();
   const kind = ds.ttKind || "field";
   const index = Number(ds.ttIndex);
@@ -431,31 +502,44 @@ function buildSlotUpgrade(ds, detail) {
   const currentPct = FIELD_LEVEL_SPEED_BONUS * slot.level;
   const nextPct = FIELD_LEVEL_SPEED_BONUS * (slot.level + 1);
   const playerGold = Math.floor(ctx.state.player.gold);
-  const poor = playerGold < cost && !lvlMaxed;
 
-  const rows = [];
-  rows.push({ label: "Seviye", value: `${slot.level} / ${MAX_FIELD_LEVEL}` });
+  const groups = [];
 
+  // GROUP 1 — Durum
+  const durumRows = [];
+  durumRows.push({ label: "Seviye", value: `${slot.level} / ${MAX_FIELD_LEVEL}` });
   if (lvlMaxed) {
-    rows.push({ label: "Hız", value: signedPercent(currentPct) });
-    rows.push("---");
-    rows.push({ label: "Durum", value: "Maksimum seviye" });
+    durumRows.push({ label: "Hız", value: `<span class="tt-positive">%${Math.round(currentPct * 100)}</span>` });
   } else {
-    rows.push({ label: "Hız", value: `<span class="tt-positive">%${Math.round(currentPct * 100)}</span> → <span class="tt-positive">%${Math.round(nextPct * 100)}</span>` });
-    rows.push("---");
-    rows.push({ label: "Maliyet", value: `${cost} 🪙` });
-    if (poor) {
-      rows.push({ label: "", value: `<span class="tt-negative">Yetersiz altın</span>` });
+    durumRows.push({ label: "Hız", value: `<span class="tt-positive">%${Math.round(currentPct * 100)}</span> → <span class="tt-positive">%${Math.round(nextPct * 100)}</span>` });
+  }
+  groups.push({ rows: durumRows });
+
+  // GROUP 2 — Alım
+  if (!lvlMaxed) {
+    const alimRows = [];
+    alimRows.push({ label: "Maliyet", value: `${cost} 🪙` });
+    if (playerGold < cost) {
+      alimRows.push({ label: "", value: `<span class="tt-negative">Yetersiz altın</span>` });
     }
+    groups.push({ rows: alimRows });
   }
 
-  return { title: "Hız Geliştirme", rows };
+  let footer = null;
+  if (lvlMaxed) {
+    footer = "Maksimum seviye";
+  } else {
+    footer = "Büyüme hızını +1 artırır";
+  }
+
+  return { title: "Hız Geliştirme", badge: null, badgeClass: "", groups, footer };
 }
 
-/* ─────────────────── Yetenek ağacı düğümü ─────────────────── */
-function buildUpgradeNode(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    11. YETENEK AĞACI DÜĞÜMÜ                              */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildUpgradeNode(ds) {
   const ctx = getContext();
-  const action = ds.ttAction || "";
   const title = ds.ttTitle || "Geliştirme";
   const hint = ds.ttHint || "";
   const cost = ds.ttCost ? Number(ds.ttCost) : undefined;
@@ -466,107 +550,151 @@ function buildUpgradeNode(ds, detail) {
   const lockedBy = ds.ttLockedBy || "";
   const buildingType = ds.building || "";
 
-  const rows = [];
-  if (hint) rows.push({ label: "Bilgi", value: hint });
+  const playerGold = Math.floor(ctx.state.player.gold);
+  const groups = [];
 
-  if (maxed) {
-    rows.push({ label: "Durum", value: "Maksimum seviye" });
-  } else if (locked) {
-    rows.push({ label: "Kilitli", value: `<span class="tt-negative">${lockedBy} gerekli</span>` });
-  } else if (cost !== undefined) {
-    rows.push({ label: "Maliyet", value: `${cost} 🪙` });
-    rows.push({ label: "Mevcut", value: `${current} / ${max}` });
+  // GROUP 1 — Bilgi
+  if (hint) {
+    groups.push({ rows: [{ label: "Bilgi", value: hint }] });
   }
 
-  if (buildingType && detail) {
+  // GROUP 2 — Durum
+  const durumRows = [];
+  if (maxed) {
+    durumRows.push({ label: "Durum", value: `<span class="tt-positive">Maksimum</span>` });
+  } else if (locked) {
+    durumRows.push({ label: "Kilitli", value: `<span class="tt-negative">${lockedBy} gerekli</span>` });
+  } else if (cost !== undefined) {
+    durumRows.push({ label: "Mevcut", value: `${current} / ${max}` });
+    durumRows.push({ label: "Maliyet", value: `${cost} 🪙` });
+    if (playerGold < cost) {
+      durumRows.push({ label: "", value: `<span class="tt-negative">Yetersiz altın</span>` });
+    }
+  }
+  if (durumRows.length > 0) {
+    groups.push({ rows: durumRows });
+  }
+
+  // GROUP 3 — Bina detayı (buildingType varsa)
+  if (buildingType) {
     const def = BUILDING_TYPES[buildingType];
     const building = ctx.state.buildings[buildingType];
-    if (def && building) {
+    if (def && building && building.level < MAX_FIELD_LEVEL) {
       const curCap = capacityForLevel(buildingType, building.level);
       const nextCap = capacityForLevel(buildingType, building.level + 1);
-      if (building.level < 5) {
-        rows.push({ label: "Yeni kapasite", value: `<span class="tt-positive">${curCap} → ${nextCap}</span>` });
-      }
+      groups.push({
+        rows: [{ label: "Kapasite", value: `<span class="tt-positive">${curCap} → ${nextCap}</span>` }],
+      });
     }
   }
 
-  return { title, rows };
+  return { title, badge: null, badgeClass: "", groups, footer: null };
 }
 
-/* ─────────────────── Özellik satın alma ─────────────────── */
-function buildFeatureNode(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    12. ÖZELLİK SATIN ALMA                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildFeatureNode(ds) {
   const ctx = getContext();
   const featureId = ds.ttFeature || "";
   const name = FEATURE_NAMES[featureId] || featureId;
   const desc = FEATURE_DESCRIPTIONS[featureId] || "";
   const cost = FEATURE_COSTS[featureId];
   const owned = ctx.state.features && ctx.state.features[featureId];
+  const playerGold = Math.floor(ctx.state.player.gold);
 
-  const rows = [];
-  if (desc) rows.push({ label: "Bilgi", value: desc });
+  const groups = [];
 
-  if (owned) {
-    rows.push({ label: "Durum", value: `<span class="tt-positive">Satın alındı</span>` });
-  } else if (cost !== undefined) {
-    rows.push({ label: "Maliyet", value: `${cost} 🪙` });
+  // GROUP 1 — Bilgi
+  if (desc) {
+    groups.push({ rows: [{ label: "Bilgi", value: desc }] });
   }
 
-  return { title: name, rows };
+  // GROUP 2 — Durum
+  const durumRows = [];
+  if (owned) {
+    durumRows.push({ label: "Durum", value: `<span class="tt-positive">Satın alındı</span>` });
+  } else if (cost !== undefined) {
+    durumRows.push({ label: "Maliyet", value: `${cost} 🪙` });
+    if (playerGold < cost) {
+      durumRows.push({ label: "", value: `<span class="tt-negative">Yetersiz altın</span>` });
+    }
+  }
+  if (durumRows.length > 0) {
+    groups.push({ rows: durumRows });
+  }
+
+  return {
+    title: name,
+    badge: null,
+    badgeClass: "",
+    groups,
+    footer: owned ? null : "Satın almak için tıkla",
+  };
 }
 
-/* ─────────────────── Takvim bilgi ─────────────────── */
-function buildCalendarInfo(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    13. TAKVİM TİCARET BİLGİSİ                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildCalendarInfo(ds) {
   const ctx = getContext();
   const info = getCalendarTradeInfo(ctx.state);
   if (!info.active) return null;
 
   const seasonEm = seasonEmoji(info.season);
-  const rows = [];
-  rows.push({ label: "Mevsim", value: `${info.seasonName} ${seasonEm}` });
-  rows.push({ label: "Hava", value: info.weather });
+  const season = info.season;
+  const groups = [];
 
-  if (info.seasonEffect) {
-    rows.push({ label: "Etki", value: info.seasonEffect });
+  // GROUP 1 — Genel Durum
+  groups.push({
+    rows: [
+      { label: "Mevsim", value: `${info.seasonName} ${seasonEm}` },
+      { label: "Hava", value: info.weather },
+      { label: "Etki", value: info.seasonEffect },
+    ],
+  });
+
+  // GROUP 2 — Çarpanlar
+  const carpanRows = [];
+  const weather = getWeather(ctx.state.weather);
+  const speedPct = Math.round((weather.growthSpeedMultiplier - 1) * 100);
+  if (speedPct !== 0) {
+    carpanRows.push({ label: "Büyüme hızı", value: signedPercent(weather.growthSpeedMultiplier - 1) });
+  }
+  if (weather.tradeLossChance > 0) {
+    carpanRows.push({ label: "Ticaret riski", value: `<span class="tt-negative">%${Math.round(weather.tradeLossChance * 100)}</span>` });
+  }
+  if (carpanRows.length > 0) {
+    groups.push({ rows: carpanRows });
   }
 
-  if (detail) {
-    const season = info.season;
-    const seasonEm = seasonEmoji(info.season);
+  // GROUP 3 — Satış/Alış
+  const satisRows = [];
+  const sellPct = (SEASON_SELL_MULTIPLIER[season] || 1) - 1;
+  if (sellPct !== 0) satisRows.push({ label: "Satış etkisi", value: signedPercent(sellPct) });
 
-    const detailRows = [];
-    detailRows.push({ label: "Mevsim", value: `${info.seasonName} ${seasonEm}` });
-    detailRows.push({ label: "Hava", value: info.weather });
-    detailRows.push("---");
+  const buySeedPct = (SEASON_BUY_MULTIPLIER[season] || 1) - 1;
+  if (buySeedPct !== 0) satisRows.push({ label: "Alış (tohum)", value: signedPercent(buySeedPct) });
 
-    const sellPct = (SEASON_SELL_MULTIPLIER[season] || 1) - 1;
-    if (sellPct !== 0) detailRows.push({ label: "Mevsim satış etkisi", value: signedPercent(sellPct) });
+  const buySaplingPct = (SEASON_SAPLING_MULTIPLIER[season] || 1) - 1;
+  if (buySaplingPct !== 0) satisRows.push({ label: "Alış (fidan)", value: signedPercent(buySaplingPct) });
 
-    const buySeedPct = (SEASON_BUY_MULTIPLIER[season] || 1) - 1;
-    if (buySeedPct !== 0) detailRows.push({ label: "Mevsim alış (tohum)", value: signedPercent(buySeedPct) });
-
-    const buySaplingPct = (SEASON_SAPLING_MULTIPLIER[season] || 1) - 1;
-    if (buySaplingPct !== 0) detailRows.push({ label: "Mevsim alış (fidan)", value: signedPercent(buySaplingPct) });
-
-    const weather = getWeather(ctx.state.weather);
-    const weatherMult = WEATHER_BUY_MULTIPLIER[weather.id] || 1.0;
-    if (weatherMult !== 1.0) {
-      detailRows.push({ label: "Hava alış etkisi", value: signedPercent(weatherMult - 1) });
-    }
-
-    if (weather.id === "gokkusagi") {
-      detailRows.push({ label: "Hava nadir-satış bonusu", value: signedPercent(-0.20) });
-    }
-
-    if (detailRows.length > 0) {
-      return { title: "Takvim Ticaret", rows: detailRows };
-    }
+  const weatherMult = WEATHER_BUY_MULTIPLIER[weather.id] || 1.0;
+  if (weatherMult !== 1.0) {
+    satisRows.push({ label: `Hava alış`, value: signedPercent(weatherMult - 1) });
   }
 
-  return { title: "Takvim Ticaret", rows };
+  if (satisRows.length > 0) {
+    groups.push({ rows: satisRows });
+  }
+
+  return { title: "Takvim Ticaret", badge: null, badgeClass: "", groups, footer: null };
 }
 
-/* ─────────────────── Üretim tarifi ─────────────────── */
-function buildCraftRecipe(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    14. ÜRETİM TARİFİ                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildCraftRecipe(ds) {
   const ctx = getContext();
   const recipeId = ds.ttRecipe;
   if (!recipeId) return null;
@@ -574,9 +702,10 @@ function buildCraftRecipe(ds, detail) {
   const recipe = RECIPES.find((r) => r.id === recipeId);
   if (!recipe) return null;
 
-  const rows = [];
+  const groups = [];
 
-  const inputLines = recipe.inputs.map((inp) => {
+  // GROUP 1 — Girdiler
+  const girdiRows = recipe.inputs.map((inp) => {
     const entry = ctx.state.inventory.items[inp.id] || (() => {
       for (const [k, v] of Object.entries(ctx.state.inventory.items)) {
         if (baseItemIdOf(k) === inp.id) return v;
@@ -586,45 +715,97 @@ function buildCraftRecipe(ds, detail) {
     const have = entry ? entry.quantity : 0;
     const enough = have >= inp.qty;
     const cls = enough ? "tt-positive" : "tt-negative";
-    return `<span class="${cls}">${itemDisplayName(inp.id)} ${have}/${inp.qty}</span>`;
+    return { label: `${itemEmoji(inp.id)} ${itemDisplayName(inp.id)}`, value: `<span class="${cls}">${have}/${inp.qty}</span>` };
   });
+  groups.push({ rows: girdiRows });
 
-  rows.push({ label: "Girdiler", value: inputLines.join(", ") });
-
+  // GROUP 2 — Fiyat zinciri (taban maliyet → kâr/zarar → çıktı fiyat → üretilebilir)
   const outputPrice = itemSellPrice(recipe.output.id, {});
-  rows.push({ label: "Çıktı fiyat", value: `${outputPrice} 🪙` });
+  const inputCost = recipe.inputs.reduce((sum, inp) => sum + itemSellPrice(inp.id, {}) * inp.qty, 0);
+  const profit = outputPrice - inputCost;
 
   let maxQty = 0;
   while (canCraft(ctx.state, recipe.id, maxQty + 1)) maxQty++;
-  rows.push({ label: "Üretilebilir", value: `${maxQty}x` });
 
-  return { title: recipe.name, rows };
-}
+  const priceRows = [];
+  priceRows.push({ label: "Taban maliyet", value: `${inputCost} 🪙` });
+  if (profit > 0) {
+    priceRows.push({ label: "Kâr", value: `<span class="tt-positive">+${profit} 🪙</span>` });
+  } else if (profit < 0) {
+    priceRows.push({ label: "Zarar", value: `<span class="tt-negative">${profit} 🪙</span>` });
+  }
+  priceRows.push({ label: "Çıktı fiyat", value: `${outputPrice} 🪙` });
+  priceRows.push({ label: "Üretilebilir", value: `${maxQty}x` });
+  groups.push({ rows: priceRows });
 
-/* ─────────────────── Hızlı satış bölgesi ─────────────────── */
-function buildQuickSellZone(ds, detail) {
-  const ctx = getContext();
-  const mode = quickSellMode;
+  // GROUP 3 — Bağlantılar
+  const baglantiRows = [];
+  const chainInputs = recipe.inputs.filter((inp) => RECIPES.some((x) => x.output.id === inp.id));
+  if (chainInputs.length > 0) {
+    const chainText = chainInputs.map((inp) => {
+      const src = RECIPES.find((x) => x.output.id === inp.id);
+      return src ? `${itemEmoji(src.output.id)} ${src.name}` : inp.id;
+    }).join(", ");
+    baglantiRows.push({ label: "Zincir", value: `<span style="color:#4890d0">${chainText}</span>` });
+  }
 
-  const rows = [];
-  if (mode === "single") {
-    rows.push({ label: "Mod", value: "Tekli satış" });
-    rows.push({ label: "Bilgi", value: "Sürüklenen üründen 1 adet satar" });
+  const usedIn = RECIPES.filter((other) => other.inputs.some((inp) => inp.id === recipe.output.id));
+  if (usedIn.length > 0) {
+    const usedInText = usedIn.map((other) => `${itemEmoji(other.output.id)} ${other.name}`).join(", ");
+    baglantiRows.push({ label: "Kullanıldığı", value: usedInText });
   } else {
-    rows.push({ label: "Mod", value: "Toplu satış" });
-    rows.push({ label: "Bilgi", value: "Sürüklenen ürünün tamamını satar" });
+    baglantiRows.push({ label: "Kullanıldığı", value: "Doğrudan satış" });
   }
 
-  const weather = getWeather(ctx.state.weather);
-  if (weather.tradeLossChance > 0) {
-    rows.push({ label: "Risk", value: `<span class="tt-negative">%${Math.round(weather.tradeLossChance * 100)} ihtimalle ürün kaybolur</span>` });
+  if (baglantiRows.length > 0) {
+    groups.push({ rows: baglantiRows });
   }
 
-  return { title: "Hızlı Satış", rows };
+  return {
+    title: `${itemEmoji(recipe.output.id)} ${recipe.name}`,
+    badge: null,
+    badgeClass: "",
+    groups,
+    footer: recipe.learned ? "Öğrenildi — toplu üretim açık" : "İlk üretimde öğrenilir",
+  };
 }
 
-/* ─────────────────── Bina kapasitesi ─────────────────── */
-function buildBuildingCapacity(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    15. HIZLI SATIŞ BÖLGESİ                                */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildQuickSellZone(ds) {
+  const mode = quickSellMode;
+  const weather = getWeather(getContext().state.weather);
+
+  const groups = [];
+
+  // GROUP 1 — Mod
+  const modRows = [];
+  if (mode === "single") {
+    modRows.push({ label: "Mod", value: "Tekli satış" });
+    modRows.push({ label: "Bilgi", value: "Sürüklenen üründen 1 adet satar" });
+  } else {
+    modRows.push({ label: "Mod", value: "Toplu satış" });
+    modRows.push({ label: "Bilgi", value: "Sürüklenen ürünün tamamını satar" });
+  }
+  groups.push({ rows: modRows });
+
+  // GROUP 2 — Risk (sıfır değilse)
+  if (weather.tradeLossChance > 0) {
+    groups.push({
+      rows: [
+        { label: "Risk", value: `<span class="tt-negative">%${Math.round(weather.tradeLossChance * 100)} ile ürün kaybolur</span>` },
+      ],
+    });
+  }
+
+  return { title: "Hızlı Satış", badge: null, badgeClass: "", groups, footer: null };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    16. BİNA KAPASİTESİ                                   */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildBuildingCapacity(ds) {
   const ctx = getContext();
   const buildingType = ds.ttBuilding;
   if (!buildingType) return null;
@@ -634,35 +815,68 @@ function buildBuildingCapacity(ds, detail) {
   if (!def || !building) return null;
 
   const capacity = capacityForLevel(buildingType, building.level);
-  const rows = [];
-  rows.push({ label: "Kapasite", value: `${building.population}/${capacity}` });
+  const groups = [];
 
+  // GROUP 1 — Popülasyon
+  const popRows = [];
+  popRows.push({ label: "Popülasyon", value: `${building.population} / ${capacity}` });
   if (building.population >= capacity) {
-    rows.push({ label: "", value: `<span class="tt-negative">Kapasite dolu</span>` });
+    popRows.push({ label: "", value: `<span class="tt-negative">Kapasite dolu</span>` });
   }
+  groups.push({ rows: popRows });
 
+  // GROUP 2 — Üretim
   if (building.population > 0) {
-    rows.push({ label: "Üretim", value: `${def.baseProductionDays} günde ${building.population} ${itemDisplayName(def.productId)}` });
+    const uretimRows = [];
+    uretimRows.push({ label: "Üretim", value: `${def.baseProductionDays} günde ${building.population} ${itemDisplayName(def.productId)}` });
+    if (def.secondaryProductId) {
+      uretimRows.push({ label: "Nadiren", value: `${itemEmoji(def.secondaryProductId)} ${itemDisplayName(def.secondaryProductId)}` });
+    }
+    groups.push({ rows: uretimRows });
   }
 
-  return { title: def.name, rows };
+  // GROUP 3 — Bonuslar
+  if (def.fieldBonusCropIds && def.fieldBonusCropIds.length > 0) {
+    const bonusList = def.fieldBonusCropIds.map((id) => `${itemEmoji(id)}${itemDisplayName(id)}`).join(", ");
+    groups.push({
+      rows: [{ label: "Tarla bonusu", value: bonusList }],
+    });
+  }
+
+  return { title: def.name, badge: null, badgeClass: "", groups, footer: null };
 }
 
-/* ─────────────────── Envanter filtresi ─────────────────── */
-function buildInventoryFilter(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    17. ENVANTER FİLTRESİ                                 */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildInventoryFilter(ds) {
   const filterName = ds.ttFilter || "tümü";
+
   return {
     title: "Filtre",
-    rows: [{ label: "Aktif", value: filterName.charAt(0).toUpperCase() + filterName.slice(1) }],
+    badge: null,
+    badgeClass: "",
+    groups: [
+      { rows: [{ label: "Aktif", value: filterName.charAt(0).toUpperCase() + filterName.slice(1) }] },
+    ],
+    footer: "Kategori filtresi",
   };
 }
 
-/* ─────────────────── Envanter sıralama ─────────────────── */
-function buildInventorySort(ds, detail) {
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*                    18. ENVANTER SIRALAMA                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+function buildInventorySort(ds) {
   const sortMode = ds.ttSort || "isim";
-  const label = sortMode === "deger" ? "Değere göre sırala" : "İsme göre sırala";
+  const isValue = sortMode === "deger";
+
   return {
     title: "Sıralama",
-    rows: [{ label: "Aktif", value: label }],
+    badge: null,
+    badgeClass: "",
+    groups: [
+      { rows: [{ label: "Mod", value: isValue ? "Değere göre" : "İsme göre" }] },
+    ],
+    footer: "Karaktere tıklayarak değiştir",
   };
 }

@@ -3,22 +3,10 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
 // js/ui/settings.js
 
-import { getSetting, setSetting } from "./shared.js";
-import { setPinnedDetail } from "./tooltip.js";
-
 let _onNewGame = null;
 let _overlayEl = null;
 
 const SETTINGS = [
-  {
-    key: "detailTooltip",
-    type: "toggle",
-    label: "Detaylı İstatistik",
-    desc: "Tooltip'lerde her zaman detaylı çarpan bilgisi göster",
-  },
-  {
-    type: "divider",
-  },
   {
     key: "newGame",
     type: "button",
@@ -65,27 +53,12 @@ function renderModal() {
   const modalEl = _overlayEl.querySelector("#settings-modal");
   if (!modalEl) return;
 
-  const detailChecked = getSetting("detailTooltip", false) ? "checked" : "";
-
   let bodyHTML = "";
 
   for (const item of SETTINGS) {
     if (item.type === "divider") {
       bodyHTML += '<div class="settings-divider"></div>';
       continue;
-    }
-
-    if (item.type === "toggle") {
-      bodyHTML += `<div class="settings-row">
-          <div class="settings-row-left">
-            <span class="settings-row-label">${item.label}</span>
-            <span class="settings-row-desc">${item.desc}</span>
-          </div>
-          <label class="settings-toggle">
-            <input type="checkbox" data-setting="${item.key}" ${detailChecked} />
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          </label>
-        </div>`;
     }
 
     if (item.type === "button") {
@@ -104,17 +77,6 @@ function renderModal() {
     <div class="settings-body">${bodyHTML}</div>`;
 
   modalEl.querySelector(".settings-close").addEventListener("click", closeSettings);
-
-  modalEl.querySelectorAll("input[data-setting]").forEach((input) => {
-    input.addEventListener("change", () => {
-      const key = input.dataset.setting;
-      const val = input.checked;
-      setSetting(key, val);
-      if (key === "detailTooltip") {
-        setPinnedDetail(val);
-      }
-    });
-  });
 
   modalEl.querySelectorAll("button[data-setting-btn]").forEach((btn) => {
     btn.addEventListener("click", () => {

@@ -1,18 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*                    Tooltip motor: konumlandırma, göster/gizle, Z modu      */
+/*                    Tooltip motor: konumlandırma, göster/gizle              */
 /* ═══════════════════════════════════════════════════════════════════════════ */
-// js/ui/tooltip.js
+// js/ui/tooltip.js — TT Pro v1.0
 
 import { resolveTooltipContent } from "./tooltipContent.js";
-import { getSetting } from "./shared.js";
 
 const VIEWPORT_PAD = 10;
 const GAP = 8;
 
 let ttRoot = null;
 let activeTriggerEl = null;
-let pinnedDetail = false;
-let heldDetail = false;
 
 const CONTAINERS = [
   "middle-content",
@@ -22,21 +19,8 @@ const CONTAINERS = [
   "header",
 ];
 
-/* ─────────────────── Efektif detay modu ─────────────────── */
-function isDetail() {
-  return pinnedDetail !== heldDetail;
-}
-
-/* ─────────────────── Ayar panelinden çağrılır ─────────────────── */
-export function setPinnedDetail(val) {
-  pinnedDetail = !!val;
-  if (activeTriggerEl) refreshOpenTooltip();
-}
-
 /* ─────────────────── Tooltip sistemini başlat ─────────────────── */
 export function initTooltip() {
-  pinnedDetail = getSetting("detailTooltip", false);
-
   ttRoot = document.createElement("div");
   ttRoot.id = "tt-root";
   document.body.appendChild(ttRoot);
@@ -52,9 +36,6 @@ export function initTooltip() {
 
   window.addEventListener("scroll", handleScrollOrResize, true);
   window.addEventListener("resize", handleScrollOrResize);
-
-  document.addEventListener("keydown", handleKeyDown);
-  document.addEventListener("keyup", handleKeyUp);
 }
 
 /* ─────────────────── Açık tooltip'i tazele (tick kancası) ─────────────────── */
@@ -66,7 +47,7 @@ export function refreshOpenTooltip() {
     return;
   }
 
-  const content = resolveTooltipContent(activeTriggerEl.dataset, isDetail());
+  const content = resolveTooltipContent(activeTriggerEl.dataset);
   if (!content) {
     hideTooltip();
     return;
@@ -112,25 +93,9 @@ function handleScrollOrResize() {
   positionTooltip(activeTriggerEl);
 }
 
-function handleKeyDown(e) {
-  if (e.key !== "z" && e.key !== "Z") return;
-  const ae = document.activeElement;
-  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
-  if (heldDetail) return;
-  heldDetail = true;
-  if (activeTriggerEl) refreshOpenTooltip();
-}
-
-function handleKeyUp(e) {
-  if (e.key !== "z" && e.key !== "Z") return;
-  if (!heldDetail) return;
-  heldDetail = false;
-  if (activeTriggerEl) refreshOpenTooltip();
-}
-
 function showTooltip(el) {
   activeTriggerEl = el;
-  const content = resolveTooltipContent(el.dataset, isDetail());
+  const content = resolveTooltipContent(el.dataset);
   if (!content) {
     activeTriggerEl = null;
     return;
@@ -181,22 +146,43 @@ function positionTooltip(el) {
   ttRoot.style.top = `${y}px`;
 }
 
+/* ─────────────────── Yeni buildHTML — gruplu yapı ─────────────────── */
 function buildHTML(content) {
   let html = "";
+
+  // HEADER
   if (content.title) {
-    html += `<div class="tt-title">${content.title}</div>`;
+    html += `<div class="tt-header">`;
+    html += `<span class="tt-header-name">${content.title}</span>`;
+    if (content.badge) {
+      html += `<span class="tt-badge ${content.badgeClass || ""}">${content.badge}</span>`;
+    }
+    html += `</div>`;
   }
-  if (content.rows && content.rows.length > 0) {
-    for (const row of content.rows) {
-      if (row === "---") {
-        html += `<div class="tt-divider"></div>`;
-      } else {
-        html += `<div class="tt-row"><span class="tt-row-label">${row.label}</span><span>${row.value}</span></div>`;
+
+  // GROUPS
+  if (content.groups) {
+    for (const group of content.groups) {
+      html += `<div class="tt-group">`;
+      for (const row of group.rows) {
+        if (row === "---") {
+          html += `<div class="tt-divider"></div>`;
+        } else {
+          const icon = row.icon ? `<span class="tt-row-icon">${row.icon}</span>` : "";
+          html += `<div class="tt-row">`;
+          html += `${icon}<span class="tt-row-label">${row.label}</span>`;
+          html += `<span class="tt-row-value">${row.value}</span>`;
+          html += `</div>`;
+        }
       }
+      html += `</div>`;
     }
   }
+
+  // FOOTER
   if (content.footer) {
     html += `<div class="tt-footer">${content.footer}</div>`;
   }
+
   return html;
 }
