@@ -15,7 +15,6 @@ import {
   FEATURE_COSTS,
   FEATURE_NAMES,
   FEATURE_EMOJIS,
-  FEATURE_DESCRIPTIONS,
 } from "../systems/upgrades.js";
 import {
   INVENTORY_TOTAL_SLOTS, FIELD_TOTAL_SLOTS, ORCHARD_TOTAL_SLOTS,
@@ -100,12 +99,13 @@ function renderNode(data) {
 
   const lockBadge = locked && lockedBy ? `<span class="skill-lock-badge">${lockedBy}</span>` : "";
 
+  const ttAttrs = `data-tt="upgradeNode" data-tt-title="${title}" data-tt-hint="${hint}" data-tt-icon="${emoji}" data-tt-cost="${cost !== undefined ? cost : ""}" data-tt-current="${current}" data-tt-max="${max}" data-tt-maxed="${maxed}" data-tt-locked="${locked}" data-tt-locked-by="${lockedBy}" ${data.buildingType ? `data-building="${data.buildingType}"` : ""}`;
+
   return `
-    <div class="skill-node ${stateClass}${featureCls}" data-action="${action}" ${extraAttr}>
+    <div class="skill-node ${stateClass}${featureCls}" data-action="${action}" ${extraAttr} ${ttAttrs} tabindex="0" role="button" aria-label="${title}">
       ${lockBadge}
       <div class="skill-node-icon">${emoji}</div>
       <span class="skill-node-title">${title}</span>
-      <span class="skill-node-hint">${hint}</span>
       ${renderBoxes(current, max, isReachable, maxed, isFeature, gridCols || 0)}
       ${costHTML}
     </div>
@@ -139,7 +139,6 @@ function renderBranch(icon, title, subtitle, nodesHTML) {
 function renderFeatureNode(featureId, isOwned, lockedBy = "") {
   const name = FEATURE_NAMES[featureId] || featureId;
   const emoji = FEATURE_EMOJIS[featureId] || "🔓";
-  const desc = FEATURE_DESCRIPTIONS[featureId] || "";
   const cost = FEATURE_COSTS[featureId];
   const canAfford = gold() >= cost;
   const locked = !!lockedBy;
@@ -157,12 +156,13 @@ function renderFeatureNode(featureId, isOwned, lockedBy = "") {
   const lockBadge = locked ? `<span class="skill-lock-badge">${lockedBy}</span>` : "";
   const action = isOwned || locked ? "" : `data-action="buyFeature" data-feature="${featureId}"`;
 
+  const ttAttrs = `data-tt="featureNode" data-tt-feature="${featureId}" data-tt-icon="${emoji}"`;
+
   return `
-    <div class="skill-node ${stateClass} is-feature" ${action}>
+    <div class="skill-node ${stateClass} is-feature" ${action} ${ttAttrs} tabindex="0" role="button" aria-label="${name}">
       ${lockBadge}
       <div class="skill-node-icon">${emoji}</div>
       <span class="skill-node-title">${name}</span>
-      <span class="skill-node-hint">${desc}</span>
       ${costHTML}
     </div>
   `;

@@ -6,6 +6,7 @@
 
 import { BUILDING_TYPES, capacityForLevel } from "../data/animals.js";
 import { itemDisplayName, itemEmoji } from "../data/items.js";
+import { FEATURE_EMOJIS } from "../systems/upgrades.js";
 import { getContext } from "./shared.js";
 
 let _lastBldVersion = -1;
@@ -36,7 +37,7 @@ export function renderBuildingTab() {
     if (qty > 0) {
       const name = itemDisplayName(productId);
       storedProducts.push(
-        `<div class="building-product-cell" draggable="true" data-product-id="${productId}" data-source="building" data-tt="product" data-tt-item="${productId}">
+        `<div class="building-product-cell" draggable="true" data-product-id="${productId}" data-source="building" data-tt="product" data-tt-item="${productId}" data-tt-icon="${itemEmoji(productId)}">
           <span class="building-product-emoji">${itemEmoji(productId)}</span>
           <span class="building-product-qty">${qty}</span>
         </div>`
@@ -46,7 +47,7 @@ export function renderBuildingTab() {
 
   document.getElementById("building-content").innerHTML = `
     <div class="building-panel">
-      <div class="building-panel-info" data-tt="buildingCapacity" data-tt-building="${type}">
+      <div class="building-panel-info" data-tt="buildingCapacity" data-tt-building="${type}" data-tt-icon="${FEATURE_EMOJIS[type] || "🏠"}">
         <h3>Seviye ${building.level}</h3>
         <p>${def.animalName}: ${building.population} / ${capacity}</p>
         <p>${building.population > 0 ? `${def.baseProductionDays} günde ${building.population} ${itemDisplayName(def.productId)}` : "Hayvan yok"}</p>

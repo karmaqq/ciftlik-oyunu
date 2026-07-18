@@ -88,7 +88,7 @@
 }
 
 .mr-price-black {
-  color: #000;
+  color: var(--color-black);
 }
 
 .mr-tag-secondary {
@@ -96,19 +96,19 @@
 }
 
 .mr-tag-free {
-  color: #ffffff;
+  color: var(--color-white);
 }
 
 .mr-tag-ideal {
-  color: #e6c520;
+  color: var(--color-trade);
 }
 
 .mr-tag-cheap {
-  color: #2ecc71;
+  color: var(--color-positive);
 }
 
 .mr-tag-expensive {
-  color: #e74c3c;
+  color: var(--color-negative);
 }
 
 .mr-right {

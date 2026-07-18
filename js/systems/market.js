@@ -72,7 +72,7 @@ export function generateMarketCycle(state) {
       itemId: entry.itemId,
       seedId: entry.seedId,
       basePrice: entry.basePrice,
-      pricePerUnit: Math.max(0, Math.round(entry.basePrice * priceMultiplier)),
+      pricePerUnit: Math.max(1, Math.round(entry.basePrice * priceMultiplier)),
       priceMultiplier,
       remaining,
       category: "seed",
@@ -91,7 +91,7 @@ export function generateMarketCycle(state) {
       itemId: entry.itemId,
       seedId: entry.seedId,
       basePrice: entry.basePrice,
-      pricePerUnit: Math.max(0, Math.round(entry.basePrice * priceMultiplier)),
+      pricePerUnit: Math.max(1, Math.round(entry.basePrice * priceMultiplier)),
       priceMultiplier,
       remaining,
       category: "sapling",
@@ -108,7 +108,7 @@ export function generateMarketCycle(state) {
 
   for (const entry of activeAnimals) {
     const priceMultiplier = rollPriceMultiplier();
-    const finalPrice = Math.max(0, Math.round(entry.basePrice * priceMultiplier));
+    const finalPrice = Math.max(1, Math.round(entry.basePrice * priceMultiplier));
     listings.push({
       buildingType: entry.buildingType,
       label: entry.label,

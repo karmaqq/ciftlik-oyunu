@@ -26,7 +26,7 @@ function upgradeButtonsHTML(slot, index, kind) {
   const speedCost = kind === "field" ? fieldUpgradeCost(slot.level) : orchardUpgradeCost(slot.level);
 
   return `<div class="slot-upgrades">
-    <button class="mini-btn${gold() < speedCost && !lvlMaxed ? " insufficient-gold" : ""}" data-kind="${kind}" data-index="${index}" data-action="upgradeLevel" data-tt="slotUpgrade" data-tt-kind="${kind}" data-tt-index="${index}" ${lvlMaxed ? "disabled" : ""}><svg class="upgrade-icon" viewBox="0 0 12 12" width="18" height="18"><path d="M6 2 L10 7 L8 7 L8 10 L4 10 L4 7 L2 7 Z" fill="currentColor"/></svg>${slot.level}</button>
+    <button class="mini-btn${gold() < speedCost && !lvlMaxed ? " insufficient-gold" : ""}" data-kind="${kind}" data-index="${index}" data-action="upgradeLevel" data-tt="slotUpgrade" data-tt-kind="${kind}" data-tt-index="${index}" data-tt-icon="⚡" ${lvlMaxed ? "disabled" : ""}><svg class="upgrade-icon" viewBox="0 0 12 12" width="18" height="18"><path d="M6 2 L10 7 L8 7 L8 10 L4 10 L4 7 L2 7 Z" fill="currentColor"/></svg>${slot.level}</button>
   </div>`;
 }
 
@@ -37,14 +37,14 @@ function slotHTML(slot, index, kind) {
 
   if (!slot.unlocked) {
     const cost = kind === "field" ? fieldSlotUnlockCost(unlockedCount) : orchardSlotUnlockCost(unlockedCount);
-    return `<div class="slot locked" data-kind="${kind}" data-index="${index}" data-action="unlock" data-tt="lockedSlot" data-tt-kind="${kind}" data-tt-index="${index}">
+    return `<div class="slot locked" data-kind="${kind}" data-index="${index}" data-action="unlock" data-tt="lockedSlot" data-tt-kind="${kind}" data-tt-index="${index}" data-tt-icon="🔒">
       <div class="slot-inner">🔒</div>
       <div class="slot-name">${cost}🪙</div>
     </div>`;
   }
 
   if (!slot.planted) {
-    return `<div class="slot empty-plantable" data-kind="${kind}" data-index="${index}" data-tt="emptySlot" data-tt-kind="${kind}" data-tt-index="${index}">
+    return `<div class="slot empty-plantable" data-kind="${kind}" data-index="${index}" data-tt="emptySlot" data-tt-kind="${kind}" data-tt-index="${index}" data-tt-icon="${kind === "field" ? "🌾" : "🌳"}">
       ${upgradeButtonsHTML(slot, index, kind)}
       <div class="slot-inner">＋</div>
     </div>`;
@@ -55,7 +55,7 @@ function slotHTML(slot, index, kind) {
   const ready = slot.planted.ready;
   const baseEmoji = itemEmoji(def ? def.id : slot.planted.cropId);
 
-  return `<div class="slot ${ready ? "ready" : "growing"}" data-kind="${kind}" data-index="${index}" data-action="${ready ? "harvest" : ""}" data-tt="${ready ? "readySlot" : "growingSlot"}" data-tt-kind="${kind}" data-tt-index="${index}">
+  return `<div class="slot ${ready ? "ready" : "growing"}" data-kind="${kind}" data-index="${index}" data-action="${ready ? "harvest" : ""}" data-tt="${ready ? "readySlot" : "growingSlot"}" data-tt-kind="${kind}" data-tt-index="${index}" data-tt-icon="${baseEmoji}">
     ${upgradeButtonsHTML(slot, index, kind)}
     <div class="slot-inner">${baseEmoji}</div>
     ${ready ? "" : `<div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>`}

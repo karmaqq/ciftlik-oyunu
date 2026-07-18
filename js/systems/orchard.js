@@ -2,26 +2,10 @@
 /*                   Bahçe/fidanlık mekaniği                                 */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 // js/systems/orchard.js
-// Tarla sistemiyle aynı mantık, TREES veri setini kullanır. Mantık tekrarı
-// bilinçli tutuldu ki iki sistem ayrı ayrı dengelenebilsin (ör. ağaç upgrade
-// maliyetleri tarladan farklı ölçeklenebilir).
 import { getTree } from "../data/trees.js";
-import { itemDisplayName, itemEmoji } from "../data/items.js";
+import { hasItem, removeItem } from "../state.js";
 import { daysToSeconds } from "./time.js";
-import { getWeather, rollRarity, RARITY_SELL_MULTIPLIER } from "./weather.js";
-import { addItem, hasItem, removeItem, FIELD_LEVEL_SPEED_BONUS } from "../state.js";
-import { gameLog } from "../log.js";
-
-const MIN_HARVESTS = 1;
-const MAX_HARVESTS = 5;
-
-/* ─────────────────── Bahçe büyüme çarpanı ─────────────────── */
-export function computeOrchardGrowthMultiplier(slot, weatherState) {
-  const slotBonus = Math.min(FIELD_LEVEL_SPEED_BONUS * slot.level, 0.99);
-  const levelBonus = 1 / (1 - slotBonus);
-  const weatherBonus = getWeather(weatherState).growthSpeedMultiplier;
-  return levelBonus * weatherBonus;
-}
+import { tickGrowth, harvest as sharedHarvest, removePlant as sharedRemovePlant, randomHarvests } from "./planting.js";
 
 /* ─────────────────── Ağaç ekilebilir mi ─────────────────── */
 export function canPlantTree(state, slot, treeId) {
@@ -38,8 +22,7 @@ export function plantTree(state, slotIndex, treeId) {
   if (!canPlantTree(state, slot, treeId)) return { success: false, reason: "ekilemez" };
 
   removeItem(state, `${treeId}_fidan`, 1);
-
-  const harvests = Math.floor(Math.random() * (MAX_HARVESTS - MIN_HARVESTS + 1)) + MIN_HARVESTS;
+  const harvests = randomHarvests();
 
   slot.planted = {
     cropId: treeId,
@@ -55,59 +38,19 @@ export function plantTree(state, slotIndex, treeId) {
 
 /* ─────────────────── Bahçe büyümesini güncelle ─────────────────── */
 export function tickOrchardGrowth(state, dtSeconds) {
-  for (const slot of state.orchard.slots) {
-    if (!slot.unlocked || !slot.planted || slot.planted.ready) continue;
-    const mult = computeOrchardGrowthMultiplier(slot, state.weather);
-    slot.planted.elapsedSeconds += dtSeconds * mult;
-    if (slot.planted.elapsedSeconds >= slot.planted.requiredSeconds) {
-      slot.planted.ready = true;
-      const tree = getTree(slot.planted.cropId);
-      if (tree) {
-        gameLog(`${itemEmoji(tree.id)} ${itemDisplayName(tree.id)} hasat için hazır`, "info");
-      }
-    }
-  }
+  tickGrowth(state.orchard.slots, state.weather, dtSeconds, getTree);
 }
 
 /* ─────────────────── Bahçe slotunu hasat et ─────────────────── */
 export function harvestOrchardSlot(state, slotIndex) {
   const slot = state.orchard.slots[slotIndex];
-  if (!slot.planted || !slot.planted.ready) return { success: false, reason: "hazir_degil" };
-
-  const tree = getTree(slot.planted.cropId);
-  const rarity = rollRarity(state.weather);
-  const qty = 1;
-
-  addItem(state, tree.id, qty, {
-    rarity,
-    sellPriceOverride: rarity === "normal" ? undefined : Math.round(tree.sellPrice * RARITY_SELL_MULTIPLIER[rarity]),
-  });
-
-  slot.planted.harvestsLeft--;
-
-  if (slot.planted.harvestsLeft <= 0) {
-    slot.planted = null;
-    return { success: true, treeId: tree.id, qty, rarity, depleted: true };
-  }
-
-  if (tree.recurringIntervalDays) {
-    slot.planted.elapsedSeconds = 0;
-    slot.planted.requiredSeconds = daysToSeconds(tree.recurringIntervalDays);
-    slot.planted.ready = false;
-  } else {
-    slot.planted = null;
-  }
-
-  return { success: true, treeId: tree.id, qty, rarity, depleted: false };
+  return sharedHarvest(state, slot, getTree, "treeId");
 }
 
-/** Ekili slotu manuel olarak söker. */
 /* ─────────────────── Bitkiyi kaldır ─────────────────── */
 export function removePlant(state, slotIndex) {
   const slot = state.orchard.slots[slotIndex];
-  if (!slot.planted) return { success: false, reason: "hazir_degil" };
-  slot.planted = null;
-  return { success: true };
+  return sharedRemovePlant(slot);
 }
 
 /* ─────────────────── Bahçe geliştirme temel maliyeti ─────────────────── */

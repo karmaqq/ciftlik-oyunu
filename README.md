@@ -1,7 +1,7 @@
-# Çiftlik Oyunu — Çalışan Prototip
+# Çiftlik Oyunu
 
 Vanilla JavaScript (ES Modules), bundler yok. `js/systems/*` oyun mantığını,
-`js/data/*` ürün/tarif/hayvan tanımlarını, `js/ui.js` render + etkileşimi,
+`js/data/*` ürün/tarif/hayvan tanımlarını, `js/ui/` render + etkileşimi,
 `js/main.js` oyun döngüsünü içerir.
 
 ## Çalıştırma
@@ -18,54 +18,56 @@ python3 -m http.server 8080
 
 VSCode kullanıyorsan "Live Server" eklentisiyle de `index.html`'i açabilirsin.
 
-## Zaman Sistemi (güncellendi)
+## Mimari
+
+```
+js/
+├── data/          # Statik veri tanımları (ürün, hayvan, tarif)
+├── systems/       # Durum değiştiren mantık (ekim, market, bina)
+├── ui/            # Render ve etkileşim
+│   ├── index.js   # Koordinatör (init, render, tick)
+│   ├── events.js  # Olay yönetimi (tıklama, sürükleme, touch)
+│   ├── tooltip.js # Tooltip motoru
+│   └── *.js       # Panel render fonksiyonları
+└── main.js        # Oyun döngüsü, sabitler, durum yönetimi
+css/
+├── base.css       # CSS değişkenleri, sıfırlama, temel layout
+├── responsive.css # Responsive tasarım, large screen desteği
+└── *.css          # Panel stilleri
+```
+
+## Zaman Sistemi
 
 - 1 gün = 60 gerçek saniye
 - 1 mevsim = 10 gün = **10 dakika**
 - 1 yıl = 4 mevsim = 40 gün = **40 dakika**
-- Ay katmanı kaldırıldı (kullanıcı isteğiyle) — sadece gün → mevsim → yıl var.
+- Oyun arka planda kaldığında `Date.now()` tabanlı delta时间 hesaplanır
 
-## Verilen Kararlar (önceki "açık kararlar" listesi kapatıldı)
-
-| Konu | Karar |
-|---|---|
-| Tarla ürün listesi | 20 ürün tamamlandı (+ soğan, sarımsak, nohut eklendi) |
-| Ağaç ürün listesi | 20 ürün tamamlandı (+ incir, nar eklendi) |
-| Tier ↔ ürün eşleştirmesi | `js/data/crops.js` ve `js/data/trees.js` içinde her ürün `tier: 1-4` alanıyla sabitlendi |
-| Merge (birleştirme) kuralı | `js/systems/merge.js`: 3 adet aynı ürün → 1 adet "kaliteli" versiyon (4x satış fiyatı). Kötü havada başarısızlık riski var. |
-| Sipariş sistemi | Doküman kapsamına alınmadı — mevcut prototipte yok, market + üretim + görev sistemleri önceliklendirildi. İstenirse `js/systems/orders.js` olarak eklenebilir. |
-| Hayvan bina seviyesi etkisi | `js/data/animals.js`: seviye başına kapasite +%20, üretim hızı +%10, max 5 seviye |
-| Gün/hafta/ay süreleri | Ay kaldırıldı; gün=60sn, mevsim=10 gün, yıl=40 gün (yukarıda) |
-
-## Sistem Haritası
+## Ana Sistemler
 
 - `js/systems/time.js` — gün/mevsim/yıl ilerlemesi
-- `js/systems/field.js` / `orchard.js` — ekme, büyüme, hasat, slot upgrade
-- `js/systems/buildings.js` — kovan/kümes/ahır üretimi, hayvan alımı, bina upgrade
-- `js/systems/inventory.js` — sıralama/filtreleme
-- `js/systems/market.js` — 2 dakikalık döngüsel market, toplu satış, satış
+- `js/systems/field.js` — tarla ekimi, büyüme, hasat
+- `js/systems/orchard.js` — bahçe ekimi, büyüme, hasat
+- `js/systems/planting.js` — tarla/bahçe ortak ekim/büyüme mantığı
+- `js/systems/buildings.js` — kovan/kümes/ahır üretimi, hayvan alımı
+- `js/systems/market.js` — döngüsel market, toplu alım, satış
 - `js/systems/crafting.js` — tarif üretimi, ilk üretimde "öğrenme"
-- `js/systems/quests.js` — görev üretimi, ilerleme takibi, ödül
-- `js/systems/weather.js` — hava koşulları, rarity (nadir/legendary/gizemli)
-- `js/systems/upgrades.js` — tarla/bahçe slot seviyesi + tohum koruma seviyesi
-- `js/systems/merge.js` — eşya birleştirme (henüz UI'ye bağlanmadı, fonksiyon hazır)
+- `js/systems/weather.js` — hava koşulları, rarity sistemi
+- `js/systems/upgrades.js` — geliştirme ağaçları, bina yükseltmeleri
+- `js/systems/save.js` — localStorage kaydetme/yükleme, versiyon migrasyonu
+- `js/systems/calendarTrade.js` — takvim bazlı fiyat çarpanları
 
-## Test Edildi
+## Kalite İyileştirmeleri
 
-`node --check` ile tüm dosyalarda sözdizimi kontrolü yapıldı; ayrıca
-headless bir Node testiyle zaman ilerlemesi (1 yıl = 2400 sn, 4 mevsim
-değişimi), ekim/hasat, market satın alma/satış, üretim (crafting),
-görev tamamlama ve hayvan üretimi akışları gerçek state üzerinde
-doğrulandı.
+- **Event delegation**: Tab butonları için tek `addEventListener` + event delegation
+- **Touch/pointer desteği**: Mobil cihazlarda sürükleme-bırakma `pointer events` ile
+- **Performans**: `render()` sadece değişen sekmeleri yeniden oluşturur
+- **Tooltip diffing**: `innerHTML` sadece içerik değiştiğinde güncellenir
+- **CSS değişkenleri**: Tüm renkler `:root` tanımlarından yönetilir
+- **Erişilebilirlik**: ARIA rolleri, tabindex, contrast iyileştirmeleri
+- **Migrasyon**: `SAVE_VERSION` ile eski kayıtlar otomatik güncellenir
+- **Büyüme hesaplaması**: `Date.now()` tabanlı delta时间 ile arka plan uyumluluğu
 
-## Bilinçli Olarak Sınırlı Bırakılanlar (sonraki adım için)
+## Test
 
-1. **Merge UI'si**: `systems/merge.js` fonksiyonel ama envanter panelinde
-   henüz bir "birleştir" butonu yok — eklemesi kolay (3x aynı item seçilince
-   buton görünür hale getirilebilir).
-2. **Sipariş (order) sistemi**: tasarım dokümanında var ama bu prototipte
-   kapsam dışı bırakıldı.
-3. **Kaydetme**: state şu an sadece bellekte tutuluyor, sayfa yenilenince
-   sıfırlanıyor. İstenirse JSON export/import (dosyaya kaydet/yükle) eklenebilir
-   — tarayıcı localStorage kullanılmadı çünkü bazı önizleme ortamlarında
-   çalışmayabiliyor.
+Tüm JS dosyalarında `node --check` ile sözdizimi kontrolü yapıldı.

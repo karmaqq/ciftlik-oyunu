@@ -10,6 +10,8 @@ const GAP = 8;
 
 let ttRoot = null;
 let activeTriggerEl = null;
+let lastTooltipHTML = "";
+let cachedTriggerRect = null;
 
 const CONTAINERS = [
   "middle-content",
@@ -53,7 +55,11 @@ export function refreshOpenTooltip() {
     return;
   }
 
-  ttRoot.innerHTML = buildHTML(content);
+  const html = buildHTML(content);
+  if (html !== lastTooltipHTML) {
+    ttRoot.innerHTML = html;
+    lastTooltipHTML = html;
+  }
   requestAnimationFrame(() => positionTooltip(activeTriggerEl));
 }
 
@@ -101,7 +107,11 @@ function showTooltip(el) {
     return;
   }
 
-  ttRoot.innerHTML = buildHTML(content);
+  cachedTriggerRect = el.getBoundingClientRect();
+
+  const html = buildHTML(content);
+  lastTooltipHTML = html;
+  ttRoot.innerHTML = html;
   ttRoot.style.visibility = "hidden";
   ttRoot.style.left = "-9999px";
   ttRoot.style.top = "-9999px";
@@ -115,15 +125,17 @@ function showTooltip(el) {
 
 function hideTooltip() {
   activeTriggerEl = null;
+  cachedTriggerRect = null;
+  lastTooltipHTML = "";
   if (ttRoot) {
     ttRoot.classList.remove("visible");
   }
 }
 
 function positionTooltip(el) {
-  if (!ttRoot || !el) return;
+  if (!ttRoot || !el || !cachedTriggerRect) return;
 
-  const triggerRect = el.getBoundingClientRect();
+  const triggerRect = cachedTriggerRect;
   const ttW = ttRoot.offsetWidth;
   const ttH = ttRoot.offsetHeight;
 
@@ -153,6 +165,9 @@ function buildHTML(content) {
   // HEADER
   if (content.title) {
     html += `<div class="tt-header">`;
+    if (content.icon) {
+      html += `<span class="tt-header-icon">${content.icon}</span>`;
+    }
     html += `<span class="tt-header-name">${content.title}</span>`;
     if (content.badge) {
       html += `<span class="tt-badge ${content.badgeClass || ""}">${content.badge}</span>`;
@@ -169,8 +184,10 @@ function buildHTML(content) {
           html += `<div class="tt-divider"></div>`;
         } else {
           const icon = row.icon ? `<span class="tt-row-icon">${row.icon}</span>` : "";
-          html += `<div class="tt-row">`;
-          html += `${icon}<span class="tt-row-label">${row.label}</span>`;
+          const rowCls = row.label ? "" : " tt-row--no-label";
+          const labelHtml = row.label ? `<span class="tt-row-label">${row.label}</span>` : "";
+          html += `<div class="tt-row${rowCls}">`;
+          html += `${icon}${labelHtml}`;
           html += `<span class="tt-row-value">${row.value}</span>`;
           html += `</div>`;
         }

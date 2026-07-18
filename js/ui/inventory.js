@@ -48,8 +48,8 @@ export function renderInventory() {
   const filtersEl = document.getElementById("inventory-filters");
   const isActive = inventorySort === "deger";
   filtersEl.innerHTML =
-    `<button class="hamburger-btn${isActive ? " active" : ""}" data-action="sortByValue" data-tt="inventorySort" data-tt-sort="${inventorySort}"><span></span><span></span><span></span></button>` +
-    FILTERS.map((f) => `<button data-filter="${f}" data-tt="inventoryFilter" data-tt-filter="${f}">${f.charAt(0).toUpperCase() + f.slice(1)}</button>`).join("");
+    `<button class="hamburger-btn${isActive ? " active" : ""}" data-action="sortByValue" data-tt="inventorySort" data-tt-sort="${inventorySort}" data-tt-icon="↕️"><span></span><span></span><span></span></button>` +
+    FILTERS.map((f) => `<button data-filter="${f}" data-tt="inventoryFilter" data-tt-filter="${f}" data-tt-icon="🔍">${f.charAt(0).toUpperCase() + f.slice(1)}</button>`).join("");
 
   const list = getInventoryList(ctx.state, { filter: inventoryFilter, sortBy: inventorySort });
   const grid = document.getElementById("inventory-grid");
@@ -64,7 +64,7 @@ export function renderInventory() {
     const rarityBorderClass = rarity && rarity !== "normal" ? ` rarity-${rarity}` : "";
 
     cells.push(`
-      <div class="cell item ${entry.category}${rarityBorderClass}" draggable="true" data-item-id="${entry.itemId}" data-tt="product" data-tt-item="${entry.itemId}">
+      <div class="cell item ${entry.category}${rarityBorderClass}" draggable="true" data-item-id="${entry.itemId}" data-tt="product" data-tt-item="${entry.itemId}" data-tt-icon="${itemEmoji(entry.baseItemId)}">
         <span class="cell-emoji">${itemEmoji(entry.baseItemId)}</span>
         <span class="qty">${entry.quantity}</span>
         <span class="label"><span class="label-text${rarityClass}">${name}</span></span>
@@ -75,7 +75,7 @@ export function renderInventory() {
 
   const quickSellZone = document.getElementById("quick-sell-zone");
   if (quickSellZone && ctx.state.features && ctx.state.features.quickSell) {
-    quickSellZone.innerHTML = `<div class="quick-sell-content" data-tt="quickSellZone"><small>Sürükle, bırak ve sat</small></div>`;
+    quickSellZone.innerHTML = `<div class="quick-sell-content" data-tt="quickSellZone" data-tt-icon="💸"><small>Sürükle, bırak ve sat</small></div>`;
   }
 
   document.querySelectorAll("#sell-tabs button").forEach((btn) => {

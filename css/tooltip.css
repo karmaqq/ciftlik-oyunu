@@ -34,7 +34,7 @@
   gap: 6px;
   margin-bottom: 8px;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .tt-header-icon {
@@ -45,7 +45,7 @@
 .tt-header-name {
   font-weight: 700;
   font-size: var(--font-sm);
-  color: var(--text-primary);
+  color: var(--accent);
 }
 
 /* ═══ BADGE ═══ */
@@ -85,13 +85,13 @@
 .tt-group + .tt-group {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border-strong);
 }
 
 /* ═══ SATIR ═══ */
 .tt-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 12px;
   padding: 1px 0;
@@ -104,15 +104,25 @@
 }
 
 .tt-row-value {
+  margin-left: auto;
   color: var(--text-primary);
   font-weight: 600;
   text-align: right;
 }
 
+.tt-row--no-label .tt-row-value {
+  margin-left: 0;
+  text-align: left;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  line-height: inherit;
+}
+
 /* ═══ AYIRICI ═══ */
 .tt-divider {
   height: 1px;
-  background: var(--border-subtle);
+  background: var(--border-strong);
   margin: 4px 0;
 }
 
@@ -120,14 +130,14 @@
 .tt-footer {
   margin-top: 6px;
   padding-top: 6px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border-strong);
   color: var(--text-muted);
   font-style: italic;
   font-size: 12px;
 }
 
 /* ═══ RENK SINIFLARI ═══ */
-.tt-positive { color: #4ade80; }
+.tt-positive { color: var(--color-success); }
 .tt-negative { color: var(--danger); }
 .tt-neutral  { color: var(--text-secondary); }
 

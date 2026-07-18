@@ -154,26 +154,26 @@
 }
 
 .cell.tohum {
-  background: #121a2e;
-  border-color: #1e2e50;
+  background: var(--inv-rarity-bg);
+  border-color: var(--inv-rarity-border);
 }
 
 .cell.fidan {
-  background: #1a1820;
-  border-color: #302e44;
+  background: var(--inv-legendary-bg);
+  border-color: var(--inv-legendary-border);
 }
 
 .cell.rarity-nadir {
-  border-color: #4488ff;
+  border-color: var(--rarity-nadir);
   box-shadow: 0 0 6px rgba(68, 136, 255, 0.3);
 }
 
 .cell.rarity-legendary {
-  border-color: #ff8800;
+  border-color: var(--rarity-legendary);
   box-shadow: 0 0 6px rgba(255, 136, 0, 0.3);
 }
 
 .cell.rarity-gizemli {
-  border-color: #cc44ff;
+  border-color: var(--rarity-gizemli);
   box-shadow: 0 0 6px rgba(204, 68, 255, 0.3);
 }

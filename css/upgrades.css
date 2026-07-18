@@ -250,15 +250,15 @@
 
 /* Faz 2: satın alınan kutu mor olur */
 .skill-box.phase-2.is-filled {
-  background: #cc44ff;
-  border-color: #cc44ff;
+  background: var(--rarity-gizemli);
+  border-color: var(--rarity-gizemli);
   box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.2);
 }
 
 /* Faz 2 öneri: mavi kutu üzerinde mor parlama */
 .skill-box.phase-2-next {
   background: var(--accent);
-  border: 2px solid #cc44ff;
+  border: 2px solid var(--rarity-gizemli);
   animation: skill-pulse-purple 1.4s ease-in-out infinite;
 }
 

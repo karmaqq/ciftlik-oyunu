@@ -8,13 +8,30 @@ import { createInitialState } from "../state.js";
 import { gameLog } from "../log.js";
 
 const SAVE_KEY = "ciftlik_oyunu_v1";
+const SAVE_VERSION = 2;
 const AUTO_SAVE_INTERVAL_MS = 30_000;
 let autoSaveTimer = null;
 
 // --- Serialize ---
 /* ─────────────────── Durumu JSON'a çevir ─────────────────── */
 export function stateToJSON(state) {
+  state._saveVersion = SAVE_VERSION;
   return JSON.stringify(state);
+}
+
+// --- Versiyon migrasyonu ---
+/* ─────────────────── Eski kayıtları güncelle ─────────────────── */
+function migrateState(saved) {
+  const v = saved._saveVersion || 1;
+
+  if (v < 2) {
+    if (saved.market && typeof saved.market.lastRefreshTimestamp !== "number") {
+      saved.market.lastRefreshTimestamp = 0;
+    }
+  }
+
+  saved._saveVersion = SAVE_VERSION;
+  return saved;
 }
 
 // --- Deserialize (eksik alanları varsayılanlarla tamamla) ---
@@ -42,6 +59,7 @@ export function stateFromJSON(json) {
     }
   }
 
+  migrateState(saved);
   merge(saved, fresh, "");
   return saved;
 }
@@ -67,7 +85,7 @@ export function loadGame() {
     if (!json) return null;
     return stateFromJSON(json);
   } catch (e) {
-    if (gameLog) gameLog("Yükleme hatası!", "error");
+    if (gameLog) gameLog("Kayıt bozuk! Yeni oyun başlatılıyor.", "error");
     return null;
   }
 }

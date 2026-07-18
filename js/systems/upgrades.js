@@ -129,7 +129,7 @@ export const FEATURE_COSTS = {
 
 /* ─────────────────── Özellik isimleri ─────────────────── */
 export const FEATURE_NAMES = {
-  calendar: "Takvim Ticaret",
+  calendar: "Takvim",
   quickSell: "Hızlı Satış",
   orchard: "Bahçe",
   hive: "Kovan",
@@ -149,12 +149,12 @@ export const FEATURE_EMOJIS = {
 
 /* ─────────────────── Özellik açıklamaları ─────────────────── */
 export const FEATURE_DESCRIPTIONS = {
-  calendar: "Mevsimlere göre fiyat dalgalanmaları ve ticaret bonusları",
-  quickSell: "Envanterden sürükle-bırak ile hızlı satış",
-  orchard: "Meyve ağaçları dik ve hasat et",
-  hive: "Arı yetiştir, bal üret",
-  coop: "Tavuk yetiştir, yumurta üret",
-  barn: "İnek yetiştir, süt üret",
+  calendar: ["Takvim ilerlemesi açılır", "Market fiyatlarında değişim olur"],
+  quickSell: ["Envanterden sürükle-bırak ile hızlı satış"],
+  orchard: ["Meyve ağaçları dik ve hasat et"],
+  hive: ["Arı yetiştir, bal üret"],
+  coop: ["Tavuk yetiştir, yumurta üret"],
+  barn: ["İnek yetiştir, süt üret"],
 };
 
 /* ─────────────────── Özellik satın al ─────────────────── */

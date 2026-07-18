@@ -93,7 +93,8 @@ function buildProduct(ds) {
   const rarityLabel = { nadir: "Nadir", legendary: "Efsanevi", gizemli: "Gizemli" };
   const rarityClass = { nadir: "tt-badge-nadir", legendary: "tt-badge-legendary", gizemli: "tt-badge-gizemli" };
 
-  const title = `${itemEmoji(itemId)} ${resolved.name}`;
+  const icon = itemEmoji(itemId);
+  const title = resolved.name;
   const badge = rarity !== "normal" && rarityLabel[rarity] ? rarityLabel[rarity] : null;
   const badgeClass = rarity !== "normal" ? (rarityClass[rarity] || "") : "";
 
@@ -102,7 +103,29 @@ function buildProduct(ds) {
   const isSeedLike = itemId.endsWith("_tohum") || itemId.endsWith("_fidan");
   const isKaliteli = (entry && entry.category === "kaliteli") || false;
 
-  // GROUP 1 — Tohum/Fidan bilgisi
+  const ANIMAL_PRODUCTS = new Set(["bal", "yumurta", "sut", "tavuk_eti", "inek_eti"]);
+
+  // GROUP 1 — Dönüşüm (tohum/fidan → ürün)
+  if (isSeedLike) {
+    const cropId = baseId.replace(/_tohum$/, "").replace(/_fidan$/, "");
+    groups.push({
+      rows: [{ label: "Dönüşüm", value: `${itemEmoji(cropId)} ${itemDisplayName(cropId)}` }],
+    });
+  }
+
+  // GROUP 1 — Kullanıldığı (ürün tariflerde kullanılıyorsa)
+  if (!isSeedLike) {
+    const usedIn = RECIPES.filter((r) => r.inputs.some((inp) => inp.id === baseId));
+    if (usedIn.length > 0) {
+      const usedRows = [{ label: "Kullanıldığı", value: "" }];
+      for (const r of usedIn) {
+        usedRows.push({ label: "", value: `${itemEmoji(r.output.id)} ${r.name}` });
+      }
+      groups.push({ rows: usedRows });
+    }
+  }
+
+  // GROUP 2 — Tohum/Fidan bilgisi
   if (isSeedLike) {
     const cropId = baseId;
     const crop = getCrop(cropId);
@@ -162,7 +185,7 @@ function buildProduct(ds) {
     footer = "4x fiyatına satılır";
   }
 
-  return { title, badge, badgeClass, groups, footer };
+  return { icon, title, badge, badgeClass, groups, footer };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -177,6 +200,7 @@ function buildMarketBuy(ds) {
 
   const isAnimal = listing.category === "animal";
   const name = isAnimal ? listing.label : itemDisplayName(listing.seedId);
+  const icon = ds.ttIcon || (isAnimal ? "🐄" : itemEmoji(listing.seedId));
   const unitPrice = listing.pricePerUnit;
   const basePrice = listing.basePrice;
   const discountPct = getBulkDiscountPercent();
@@ -184,7 +208,14 @@ function buildMarketBuy(ds) {
 
   const groups = [];
 
-  // GROUP 1 — Fiyat zinciri (taban → çarpanlar → kâr/zarar → alım → toplu)
+  // GROUP 1 — Dönüşüm (tohum/fidan → ürün)
+  if (listing.category === "seed" || listing.category === "sapling") {
+    groups.push({
+      rows: [{ label: "Dönüşüm", value: `${itemEmoji(listing.itemId)} ${itemDisplayName(listing.itemId)}` }],
+    });
+  }
+
+  // GROUP 2 — Fiyat zinciri (taban → çarpanlar → kâr/zarar → alım → toplu)
   const priceRows = [];
   if (calendarActive && basePrice > 0) {
     priceRows.push({ label: "Taban fiyat", value: `${basePrice} 🪙` });
@@ -228,7 +259,7 @@ function buildMarketBuy(ds) {
   }
   groups.push({ rows: priceRows });
 
-  return { title: name, badge: null, badgeClass: "", groups, footer: null };
+  return { icon, title: name, badge: null, badgeClass: "", groups, footer: null };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -242,11 +273,19 @@ function buildMarketInfo(ds) {
 
   const isAnimal = listing.category === "animal";
   const name = isAnimal ? listing.label : itemDisplayName(listing.seedId);
+  const icon = ds.ttIcon || (isAnimal ? "🐄" : itemEmoji(listing.seedId));
   const calendarActive = ctx.state.features && ctx.state.features.calendar;
 
   const groups = [];
 
-  // GROUP 1 — Ürün Detayı
+  // GROUP 1 — Dönüşüm (tohum/fidan → ürün)
+  if (listing.category === "seed" || listing.category === "sapling") {
+    groups.push({
+      rows: [{ label: "Dönüşüm", value: `${itemEmoji(listing.itemId)} ${itemDisplayName(listing.itemId)}` }],
+    });
+  }
+
+  // GROUP 2 — Ürün Detayı
   const detayRows = [];
   if (!isAnimal) {
     const cropOrTree = listing.category === "seed" ? getCrop(listing.itemId) : getTree(listing.itemId);
@@ -286,7 +325,7 @@ function buildMarketInfo(ds) {
   }
   groups.push({ rows: priceRows });
 
-  return { title: name, badge: null, badgeClass: "", groups, footer: null };
+  return { icon, title: name, badge: null, badgeClass: "", groups, footer: null };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -297,6 +336,7 @@ function buildSoldOut(ds) {
   const remaining = Math.max(0, MARKET_REFRESH_SECONDS - Math.round(ctx.state.market.secondsSinceRefresh));
 
   return {
+    icon: ds.ttIcon || "🚫",
     title: "Tükendi",
     badge: null,
     badgeClass: "",
@@ -314,6 +354,7 @@ function buildBulkDiscount(ds) {
   const discountPct = getBulkDiscountPercent();
 
   return {
+    icon: ds.ttIcon || "💰",
     title: "Toplu Alım",
     badge: null,
     badgeClass: "",
@@ -345,6 +386,7 @@ function buildEmptySlot(ds) {
   }
 
   return {
+    icon: ds.ttIcon || (kind === "field" ? "🌾" : "🌳"),
     title: `${kindName} Slot #${index + 1}`,
     badge: null,
     badgeClass: "",
@@ -388,6 +430,7 @@ function buildLockedSlot(ds) {
   }
 
   return {
+    icon: ds.ttIcon || "🔒",
     title: "Kilitli Slot",
     badge: null,
     badgeClass: "",
@@ -445,7 +488,7 @@ function buildGrowingSlot(ds) {
     });
   }
 
-  return { title: name, badge: null, badgeClass: "", groups, footer: null };
+  return { icon: ds.ttIcon || itemEmoji(planted.cropId), title: name, badge: null, badgeClass: "", groups, footer: null };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -483,7 +526,7 @@ function buildReadySlot(ds) {
     groups.push({ rows: nadirRows });
   }
 
-  return { title: name, badge: null, badgeClass: "", groups, footer: "Tıklayarak hasat et" };
+  return { icon: ds.ttIcon || itemEmoji(slot.planted.cropId), title: name, badge: null, badgeClass: "", groups, footer: "Tıklayarak hasat et" };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -532,7 +575,7 @@ function buildSlotUpgrade(ds) {
     footer = "Büyüme hızını +1 artırır";
   }
 
-  return { title: "Hız Geliştirme", badge: null, badgeClass: "", groups, footer };
+  return { icon: ds.ttIcon || "⚡", title: "Hız Geliştirme", badge: null, badgeClass: "", groups, footer };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -554,8 +597,9 @@ function buildUpgradeNode(ds) {
   const groups = [];
 
   // GROUP 1 — Bilgi
-  if (hint) {
-    groups.push({ rows: [{ label: "Bilgi", value: hint }] });
+  const hints = Array.isArray(hint) ? hint : hint ? [hint] : [];
+  if (hints.length > 0) {
+    groups.push({ rows: hints.map((line) => ({ label: "", value: line })) });
   }
 
   // GROUP 2 — Durum
@@ -588,7 +632,7 @@ function buildUpgradeNode(ds) {
     }
   }
 
-  return { title, badge: null, badgeClass: "", groups, footer: null };
+  return { icon: ds.ttIcon || "🔧", title, badge: null, badgeClass: "", groups, footer: null };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -606,8 +650,9 @@ function buildFeatureNode(ds) {
   const groups = [];
 
   // GROUP 1 — Bilgi
-  if (desc) {
-    groups.push({ rows: [{ label: "Bilgi", value: desc }] });
+  const descs = Array.isArray(desc) ? desc : desc ? [desc] : [];
+  if (descs.length > 0) {
+    groups.push({ rows: descs.map((line) => ({ label: "", value: line })) });
   }
 
   // GROUP 2 — Durum
@@ -625,6 +670,7 @@ function buildFeatureNode(ds) {
   }
 
   return {
+    icon: ds.ttIcon || FEATURE_EMOJIS[featureId] || "🔓",
     title: name,
     badge: null,
     badgeClass: "",
@@ -688,7 +734,7 @@ function buildCalendarInfo(ds) {
     groups.push({ rows: satisRows });
   }
 
-  return { title: "Takvim Ticaret", badge: null, badgeClass: "", groups, footer: null };
+  return { icon: ds.ttIcon || "📅", title: "Takvim", badge: null, badgeClass: "", groups, footer: null };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -762,7 +808,8 @@ function buildCraftRecipe(ds) {
   }
 
   return {
-    title: `${itemEmoji(recipe.output.id)} ${recipe.name}`,
+    icon: ds.ttIcon || itemEmoji(recipe.output.id),
+    title: recipe.name,
     badge: null,
     badgeClass: "",
     groups,
@@ -783,10 +830,10 @@ function buildQuickSellZone(ds) {
   const modRows = [];
   if (mode === "single") {
     modRows.push({ label: "Mod", value: "Tekli satış" });
-    modRows.push({ label: "Bilgi", value: "Sürüklenen üründen 1 adet satar" });
+    modRows.push({ label: "", value: "Sürüklenen üründen 1 adet satar" });
   } else {
     modRows.push({ label: "Mod", value: "Toplu satış" });
-    modRows.push({ label: "Bilgi", value: "Sürüklenen ürünün tamamını satar" });
+    modRows.push({ label: "", value: "Sürüklenen ürünün tamamını satar" });
   }
   groups.push({ rows: modRows });
 
@@ -799,7 +846,7 @@ function buildQuickSellZone(ds) {
     });
   }
 
-  return { title: "Hızlı Satış", badge: null, badgeClass: "", groups, footer: null };
+  return { icon: ds.ttIcon || "💸", title: "Hızlı Satış", badge: null, badgeClass: "", groups, footer: null };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -843,7 +890,7 @@ function buildBuildingCapacity(ds) {
     });
   }
 
-  return { title: def.name, badge: null, badgeClass: "", groups, footer: null };
+  return { icon: ds.ttIcon || "🏠", title: def.name, badge: null, badgeClass: "", groups, footer: null };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -853,6 +900,7 @@ function buildInventoryFilter(ds) {
   const filterName = ds.ttFilter || "tümü";
 
   return {
+    icon: ds.ttIcon || "🔍",
     title: "Filtre",
     badge: null,
     badgeClass: "",
@@ -871,6 +919,7 @@ function buildInventorySort(ds) {
   const isValue = sortMode === "deger";
 
   return {
+    icon: ds.ttIcon || "↕️",
     title: "Sıralama",
     badge: null,
     badgeClass: "",

@@ -18,11 +18,11 @@
     <div id="main-layout">
       <aside id="inventory-panel">
         <div class="panel-top">
-          <div id="inventory-filters" class="tab-bar small"></div>
+          <div id="inventory-filters" class="tab-bar small" role="tablist" aria-label="Envanter filtreleri"></div>
           <div id="inventory-grid" class="inventory-grid"></div>
         </div>
         <div class="panel-bottom">
-          <div id="sell-tabs" class="tab-bar">
+          <div id="sell-tabs" class="tab-bar" role="tablist" aria-label="Satış modu">
             <button data-sell-mode="single" class="active">Tekli</button>
             <button data-sell-mode="bulk">Toplu</button>
           </div>
@@ -32,14 +32,14 @@
 
       <section id="middle-panel">
         <div class="panel-top">
-          <div id="middle-tabs" class="tab-bar">
+          <div id="middle-tabs" class="tab-bar" role="tablist" aria-label="Orta panel sekmeleri">
             <button data-tab="field" class="active">Tarla</button>
             <button data-tab="orchard">Bahçe</button>
           </div>
           <div id="middle-content"></div>
         </div>
         <div class="panel-bottom">
-          <div id="building-tabs" class="tab-bar">
+          <div id="building-tabs" class="tab-bar" role="tablist" aria-label="Bina sekmeleri">
             <button data-tab="hive" class="active">Kovan</button>
             <button data-tab="coop">Kümes</button>
             <button data-tab="barn">Ahır</button>
@@ -49,7 +49,7 @@
       </section>
 
       <aside id="right-panel">
-        <div id="right-tabs" class="tab-bar">
+        <div id="right-tabs" class="tab-bar" role="tablist" aria-label="Sağ panel sekmeleri">
           <button data-tab="market" class="active">Market</button>
           <button data-tab="crafting">Üretim</button>
           <button data-tab="upgrades">Geliştirme</button>

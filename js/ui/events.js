@@ -3,6 +3,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
 // js/ui/events.js
 // Tüm olay yönetimi: tıklama, sürükleme-bırakma, hover olayları.
+// Pointer events: hem mouse hem touch desteğini sağlar.
 
 import { itemDisplayName, itemSellPrice, itemEmoji } from "../data/items.js";
 import { plantSeed, harvestSlot, unlockSlot, removePlant } from "../systems/field.js";
@@ -51,6 +52,11 @@ function rarityLogName(itemId, meta) {
 }
 
 let _renderFn = null;
+
+/* ─────────────────── Pointer拖拽 helper ─────────────────── */
+function isTouchDevice() {
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
+}
 
 /* ─────────────────── Sabit olayları bağla ─────────────────── */
 export function wireStaticEvents(renderFn) {
@@ -105,7 +111,9 @@ export function wireStaticEvents(renderFn) {
     highlightRecipes(null, false);
   });
 
-  document.getElementById("inventory-grid").addEventListener("dragstart", (e) => {
+  /* ── Drag & Drop: hem drag events hem pointer events ── */
+  const invGrid = document.getElementById("inventory-grid");
+  invGrid.addEventListener("dragstart", (e) => {
     const cell = e.target.closest(".cell.item");
     if (!cell) return;
     _dragItemId = cell.dataset.itemId;
@@ -122,6 +130,63 @@ export function wireStaticEvents(renderFn) {
     e.dataTransfer.setData("text/plain", cell.dataset.productId);
     e.dataTransfer.setData("application/x-source", "building");
   });
+
+  /* ── Touch/pointer drag support for inventory cells ── */
+  if (isTouchDevice()) {
+    let _pointerDragEl = null;
+    let _pointerStartPos = null;
+
+    invGrid.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch") return;
+      const cell = e.target.closest(".cell.item");
+      if (!cell || !cell.dataset.itemId) return;
+      _pointerDragEl = cell;
+      _pointerStartPos = { x: e.clientX, y: e.clientY };
+      _dragItemId = cell.dataset.itemId;
+      _plantedDuringDrag = false;
+    });
+
+    invGrid.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "touch" || !_pointerDragEl || !_pointerStartPos) return;
+      const dx = Math.abs(e.clientX - _pointerStartPos.x);
+      const dy = Math.abs(e.clientY - _pointerStartPos.y);
+      if (dx < 8 && dy < 8) return;
+      clearTimeout(_hoverTimer);
+      _hoverTimer = null;
+      _hoverSlotEl = null;
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      const slot = target && target.closest(".slot");
+      if (slot) {
+        const kind = slot.dataset.kind;
+        const valid = (kind === "field" && _dragItemId.endsWith("_tohum")) ||
+                      (kind === "orchard" && _dragItemId.endsWith("_fidan"));
+        if (valid && slot !== _hoverSlotEl) {
+          clearTimeout(_hoverTimer);
+          _hoverSlotEl = slot;
+          _hoverTimer = setTimeout(() => {
+            _hoverTimer = null;
+            _hoverSlotEl = null;
+            if (plantOnSlot(slot, _dragItemId)) {
+              _plantedDuringDrag = true;
+              scheduleSave();
+              renderFn();
+            }
+          }, 200);
+        }
+      }
+    });
+
+    invGrid.addEventListener("pointerup", (e) => {
+      if (e.pointerType !== "touch") return;
+      _pointerDragEl = null;
+      _pointerStartPos = null;
+      clearTimeout(_hoverTimer);
+      _hoverTimer = null;
+      _hoverSlotEl = null;
+      _dragItemId = null;
+      _plantedDuringDrag = false;
+    });
+  }
 
   const middleContent = document.getElementById("middle-content");
   middleContent.addEventListener("click", (e) => handlePlotClick(e));
@@ -199,35 +264,40 @@ export function wireStaticEvents(renderFn) {
       const itemId = e.dataTransfer.getData("text/plain");
       if (!itemId) return;
       const source = e.dataTransfer.getData("application/x-source") || "inventory";
-      const ctx = getContext();
-
-      if (source === "building") {
-        const available = getAnimalProductCount(ctx.state, itemId);
-        if (available <= 0) return;
-        const qty = quickSellMode === "bulk" ? available : 1;
-        const price = itemSellPrice(itemId);
-        removeAnimalProduct(ctx.state, itemId, qty);
-        const total = price * qty;
-        addGold(total);
-        ctx.log(`${itemEmoji(itemId)} ${qty} adet ${rarityLogName(itemId)} satıldı, +${total}🪙`, "trade");
-      } else {
-        const itemEntry = ctx.state.inventory.items[itemId];
-        if (!itemEntry) return;
-        const itemMeta = itemEntry.meta || {};
-        const fullQty = itemEntry.quantity;
-        const qty = quickSellMode === "bulk" ? fullQty : 1;
-        const price = itemSellPrice(itemId, itemMeta);
-        const result = sellItem(ctx.state, itemId, qty, price, addGold, itemMeta);
-        if (result.success) {
-          ctx.log(`${itemEmoji(itemId)} ${qty} adet ${rarityLogName(itemId, itemMeta)} satıldı, +${result.total}🪙`, "trade");
-        } else {
-          ctx.log(`Satış başarısız: ${reasonText(result.reason)}`, "error");
-        }
-      }
-      scheduleSave();
-      renderFn();
+      handleQuickSell(itemId, source);
     });
   }
+}
+
+/* ─────────────────── Quick-sell ortak mantık ─────────────────── */
+function handleQuickSell(itemId, source) {
+  const ctx = getContext();
+
+  if (source === "building") {
+    const available = getAnimalProductCount(ctx.state, itemId);
+    if (available <= 0) return;
+    const qty = quickSellMode === "bulk" ? available : 1;
+    const price = itemSellPrice(itemId);
+    removeAnimalProduct(ctx.state, itemId, qty);
+    const total = price * qty;
+    addGold(total);
+    ctx.log(`${itemEmoji(itemId)} ${qty} adet ${rarityLogName(itemId)} satıldı, <span class="log-gain">+${total}🪙</span>`, "trade");
+  } else {
+    const itemEntry = ctx.state.inventory.items[itemId];
+    if (!itemEntry) return;
+    const itemMeta = itemEntry.meta || {};
+    const fullQty = itemEntry.quantity;
+    const qty = quickSellMode === "bulk" ? fullQty : 1;
+    const price = itemSellPrice(itemId, itemMeta);
+    const result = sellItem(ctx.state, itemId, qty, price, addGold, itemMeta);
+    if (result.success) {
+      ctx.log(`${itemEmoji(itemId)} ${qty} adet ${rarityLogName(itemId, itemMeta)} satıldı, <span class="log-gain">+${result.total}🪙</span>`, "trade");
+    } else {
+      ctx.log(`Satış başarısız: ${reasonText(result.reason)}`, "error");
+    }
+  }
+  scheduleSave();
+  _renderFn();
 }
 
 function unlockedCountFn(kind) {
@@ -254,7 +324,7 @@ function handlePlotClick(e) {
     const unlockedCount = unlockedCountFn(kind);
     const cost = kind === "field" ? fieldSlotUnlockCost(unlockedCount) : orchardSlotUnlockCost(unlockedCount);
     const result = unlockSlot(ctx.state, index, cost, gold, deductGold);
-    ctx.log(result.success ? `Slot kilidi açıldı, ${cost}🪙` : `Kilidi açılamadı: ${reasonText(result.reason)}`, result.success ? "build" : "error");
+    ctx.log(result.success ? `Slot kilidi açıldı, <span class="log-loss">-${cost}🪙</span>` : `Kilidi açılamadı: ${reasonText(result.reason)}`, result.success ? "build" : "error");
   } else if (action === "upgradeLevel") {
     const result = kind === "field" ? upgradeFieldSlot(ctx.state, index, deductGold, gold()) : upgradeOrchardSlot(ctx.state, index, deductGold, gold());
     ctx.log(result.success ? `Hız geliştirildi → Lv${result.newLevel}` : `Geliştirme başarısız: ${reasonText(result.reason)}`, result.success ? "build" : "error");
@@ -274,14 +344,18 @@ function plantOnSlot(slotEl, itemId) {
   if (kind === "field" && itemId.endsWith("_tohum")) {
     const cropId = itemId.replace(/_tohum$/, "");
     const result = plantSeed(ctx.state, index, cropId);
-    const mergeKey = result.success ? `plant-${cropId}` : null;
-    ctx.log(result.success ? `Ekildi: ${itemEmoji(cropId)} ${itemDisplayName(cropId)} 1 adet` : `Ekilemedi: ${reasonText(result.reason)}`, result.success ? "success" : "error", mergeKey);
+    if (result.success) {
+      const mergeKey = `plant-${cropId}`;
+      ctx.log(`Ekildi: ${itemEmoji(cropId)} ${itemDisplayName(cropId)} 1 adet`, "success", mergeKey);
+    }
     return result.success;
   } else if (kind === "orchard" && itemId.endsWith("_fidan")) {
     const treeId = itemId.replace(/_fidan$/, "");
     const result = plantTree(ctx.state, index, treeId);
-    const mergeKey = result.success ? `plant-${treeId}` : null;
-    ctx.log(result.success ? `Dikildi: ${itemEmoji(treeId)} ${itemDisplayName(treeId)} 1 adet` : `Dikilemedi: ${reasonText(result.reason)}`, result.success ? "success" : "error", mergeKey);
+    if (result.success) {
+      const mergeKey = `plant-${treeId}`;
+      ctx.log(`Dikildi: ${itemEmoji(treeId)} ${itemDisplayName(treeId)} 1 adet`, "success", mergeKey);
+    }
     return result.success;
   }
   return false;
@@ -303,7 +377,6 @@ function handleRightPanelAction(e) {
   if (!btn) return;
   const action = btn.dataset.action;
   const ctx = getContext();
-  let result;
 
   if (action === "buyOne") {
     const index = Number(btn.dataset.index);
@@ -313,7 +386,7 @@ function handleRightPanelAction(e) {
     if (res.success) {
       const icon = isAnimal ? listing.emoji : itemEmoji(listing.seedId);
       const label = isAnimal ? listing.label : itemDisplayName(listing.seedId);
-      ctx.log(`${icon} Satın alındı: ${label} 1 adet, ${res.cost}🪙`, "trade");
+      ctx.log(`${icon} Satın alındı: ${label} 1 adet, <span class="log-loss">-${res.cost}🪙</span>`, "trade");
     } else {
       ctx.log(`Alınamadı: ${reasonText(res.reason)}`, "error");
     }
@@ -325,7 +398,7 @@ function handleRightPanelAction(e) {
     if (res.success) {
       const icon = isAnimal ? listing.emoji : itemEmoji(listing.seedId);
       const label = isAnimal ? listing.label : itemDisplayName(listing.seedId);
-      ctx.log(`${icon} Toplu alım: ${label} ${res.qty} adet, ${res.cost}🪙 (-${getBulkDiscountPercent()}%)`, "trade");
+      ctx.log(`${icon} Toplu alım: ${label} ${res.qty} adet, <span class="log-loss">-${res.cost}🪙</span> (-${getBulkDiscountPercent()}%)`, "trade");
     } else {
       ctx.log(`Alınamadı: ${reasonText(res.reason)}`, "error");
     }
@@ -400,7 +473,7 @@ function handleUpgradeAction(e) {
       const featureResult = buyFeature(ctx.state, featureId, deductGold, gold());
       if (featureResult.success) {
         const fName = FEATURE_NAMES[featureId] || featureId;
-        ctx.log(`${fName} satın alındı! ${featureResult.cost}🪙`, "success");
+        ctx.log(`${fName} satın alındı! <span class="log-loss">-${featureResult.cost}🪙</span>`, "success");
         _renderFn();
         return;
       } else {

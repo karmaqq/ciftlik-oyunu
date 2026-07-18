@@ -86,23 +86,32 @@
 }
 
 .log-success {
-  color: #4caf50;
+  color: var(--color-success);
 }
 .log-error {
-  color: #d04838;
+  color: var(--color-error);
 }
 .log-info {
-  color: #4890d0;
+  color: var(--color-info);
 }
 .log-warn {
-  color: #e8a020;
+  color: var(--color-warning);
 }
 .log-season {
-  color: #8bc34a;
+  color: var(--color-success);
 }
 .log-build {
-  color: #4a7fd4;
+  color: var(--accent);
 }
 .log-trade {
-  color: #f0c040;
+  color: var(--gold);
+}
+
+.log-gain {
+  color: var(--color-success);
+  font-weight: 700;
+}
+.log-loss {
+  color: var(--color-error);
+  font-weight: 700;
 }

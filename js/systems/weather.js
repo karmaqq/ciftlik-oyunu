@@ -40,7 +40,7 @@ export function rollNewWeather() {
 
 /* ─────────────────── Mevcut hava durumunu al ─────────────────── */
 export function getWeather(weatherState) {
-  return WEATHER_TYPES[weatherState.current];
+  return WEATHER_TYPES[weatherState.current] || WEATHER_TYPES.normal;
 }
 
 /**

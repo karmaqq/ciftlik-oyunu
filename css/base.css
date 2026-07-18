@@ -23,7 +23,7 @@
   /* Metin */
   --text-primary: #e0e8f4;
   --text-secondary: #8898b4;
-  --text-muted: #4a5672;
+  --text-muted: #6a7a92;
   --text-inverse: #08090e;
 
   /* Durum */
@@ -35,6 +35,29 @@
   --rarity-nadir: #4488ff;
   --rarity-legendary: #ff8800;
   --rarity-gizemli: #cc44ff;
+
+  /* Durum renkleri */
+  --color-success: #4ade80;
+  --color-error: #e07070;
+  --color-info: #4890d0;
+  --color-warning: #e8a020;
+  --color-positive: #2ecc71;
+  --color-negative: #e74c3c;
+  --color-trade: #e6c520;
+  --color-white: #ffffff;
+  --color-black: #000;
+
+  /* Slot durumları */
+  --slot-planted-bg: #121828;
+  --slot-planted-border: #1e2e48;
+  --slot-ready-bg: #182030;
+  --slot-growing-bg: #3a4a18;
+
+  /* Envanter nadirlik */
+  --inv-rarity-bg: #121a2e;
+  --inv-rarity-border: #1e2e50;
+  --inv-legendary-bg: #1a1820;
+  --inv-legendary-border: #302e44;
 
   /* Boşluk */
   --space-xxs: 2px;

@@ -19,7 +19,7 @@ export function tickBuildings(state, dtSeconds) {
     building.sinceLastProduction += dtSeconds * speedMult;
 
     const intervalSeconds = daysToSeconds(def.baseProductionDays);
-    if (building.sinceLastProduction >= intervalSeconds) {
+    while (building.sinceLastProduction >= intervalSeconds) {
       building.sinceLastProduction -= intervalSeconds;
       const producedQty = building.population;
       building.stored[def.productId] = (building.stored[def.productId] || 0) + producedQty;

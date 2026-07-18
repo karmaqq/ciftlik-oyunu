@@ -14,6 +14,10 @@ import { initGame, startAutoSave, clearSave } from "./systems/save.js";
 import { getCalendarTradeInfo } from "./systems/calendarTrade.js";
 import { setLogger } from "./log.js";
 const TICK_MS = 1000;
+const LOG_MAX_CHILDREN = 50;
+const HINT_INTERVAL_TICKS = 300;
+const WEATHER_CHANGE_DAY_INTERVAL = 7;
+const MAX_DT_SECONDS = 10;
 
 const SEASON_EFFECT = {
   ilkbahar: "Çoğu ürün için uygun mevsim — ekime başla!",
@@ -83,7 +87,7 @@ function main() {
     line.appendChild(iconSpan);
     line.appendChild(msgSpan);
     logEl.prepend(line);
-    while (logEl.children.length > 50) logEl.removeChild(logEl.lastChild);
+    while (logEl.children.length > LOG_MAX_CHILDREN) logEl.removeChild(logEl.lastChild);
   }
 
   initUI(state, log, () => {
@@ -107,15 +111,20 @@ function main() {
 
   let lastWeatherId = state.weather.current;
   let hintTimer = 0;
+  let lastTickTime = Date.now();
 
   setInterval(() => {
-    hintTimer++;
-    if (hintTimer % 300 === 0) checkHints();
+    const now = Date.now();
+    const dtSeconds = Math.min((now - lastTickTime) / 1000, MAX_DT_SECONDS);
+    lastTickTime = now;
 
-    const events = tickTime(state.time, 1);
+    hintTimer++;
+    if (hintTimer % HINT_INTERVAL_TICKS === 0) checkHints();
+
+    const events = tickTime(state.time, dtSeconds);
 
     if (events.dayChanged) {
-      if (state.time.day % 7 === 1) {
+      if (state.time.day % WEATHER_CHANGE_DAY_INTERVAL === 1) {
         state.weather.current = rollNewWeather();
         const w = getWeather(state.weather);
         const effect = WEATHER_EFFECT[state.weather.current] || "";
@@ -146,9 +155,9 @@ function main() {
       log(`Yıl ${state.time.year} başladı!`, "season");
     }
 
-    tickFieldGrowth(state, 1);
-    tickOrchardGrowth(state, 1);
-    tickBuildings(state, 1);
+    tickFieldGrowth(state, dtSeconds);
+    tickOrchardGrowth(state, dtSeconds);
+    tickBuildings(state, dtSeconds);
     tickMarket(state);
 
     const queueAdded = processQueue(state);

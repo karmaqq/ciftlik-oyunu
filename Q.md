@@ -1,143 +1,152 @@
-# Optimization Audit — `karmaqq/ciftlik-oyunu`
+# ÇİFTLİK OYUNU — KAPSAMLI DÜZELTME PLANI (10/10 Sistem Hedefi)
 
-Scope: full repo (`js/main.js`, `js/state.js`, `js/systems/*`, `js/ui/*`), main game loop runs on `setInterval(1000ms)`.
-
----
-
-## 1) Optimization Summary
-
-**Current health:** Better than a typical vanilla-JS idle game — the codebase already shows evidence of a prior optimization pass. `header.js` and `field.js` use surgical DOM patching (`updateHeaderTick`, `updateSlotsTick`) instead of full re-renders, `checkLabelOverflow()` correctly batches reads-then-writes to avoid layout thrashing, and `save.js`/`shared.js` debounce writes via `scheduleSave()` (500ms) instead of saving on every mutation. However, two of the four tick-driven panels (**inventory**, **building tab**) were never migrated to the patch pattern and still do a full `innerHTML` teardown/rebuild every single second regardless of whether their data changed or whether the panel is even visible.
-
-**Top 3 highest-impact improvements:**
-
-1. Stop unconditionally rebuilding `#inventory-grid` and `#building-content` every tick — diff-check first (mirrors what `header.js`/`field.js` already do).
-2. Gate `renderBuildingTab()` so it doesn't run every second when the buildings panel isn't visible (`anyBuilding` false, or user is on a different middle/right tab).
-3. Reduce `syncFeatureTabs()` cost — it runs 6+ `querySelector`/`getElementById` calls every tick even though `state.features` changes maybe a handful of times per playthrough.
-
-**Biggest risk if no changes are made:** None of this crashes anything — it's a CPU/battery tax, not a correctness bug. On low-end devices or laptops on battery, the constant per-second full-grid `innerHTML` rebuild (inventory: up to 25 cells re-parsed + re-styled; building panel: N product cells) plus 6 tabs of DOM querying will show up as visible jank once players unlock more inventory slots/animal products, and it drains battery on always-on idle-game tabs users tend to leave open for hours.
+> **Tarih:** 2026-07-18  
+> **Durum:** AKTİF — Değişiklikler uygulanıyor  
+> **Hedef:** Tüm tespit edilen sorunları çözelerek projeyi 10/10 seviyesine çıkarmak
 
 ---
 
-## 2) Findings (Prioritized)
+## DURUM TAKİBİ
 
-### Finding 1 — Inventory panel does a full `innerHTML` rebuild every tick
-
-- **Category:** Frontend / DOM
-- **Severity:** High
-- **Impact:** CPU per tick, main-thread jank, GC pressure from constant string-building + reparsing
-- **Evidence:** `js/ui/index.js` `tickUpdate()` calls `renderInventory()` unconditionally every second; `js/ui/inventory.js` `renderInventory()` rebuilds `#inventory-filters` HTML _and_ rebuilds all `maxSlots` (up to 25) `#inventory-grid` cells via `grid.innerHTML = cells.join("")` on every call, even when no item quantity changed that second.
-- **Why it's inefficient:** Every call destroys and recreates every inventory DOM node (with `draggable`, dataset attrs, nested spans), forces the browser to re-parse HTML and rebuild the drag/drop-eligible node tree, and — combined with `checkLabelOverflow()` running right after — forces a fresh `scrollWidth`/`clientWidth` layout pass on every `.label`/`.slot-name` in the DOM (see Finding 4), every second, forever, whether the tab is focused or not.
-- **Recommended fix:** Track a lightweight signature of inventory state (e.g. a version counter bumped in `addItem`/`removeItem`/`processQueue`, or a shallow hash of `{itemId: quantity}`) and skip the rebuild when unchanged since the last tick — same approach `header.js` already uses for its queue-count check. For the surviving diffs, patch only the changed `.qty` text nodes (mirrors `updateSlotsTick` in `field.js`) instead of rebuilding the whole grid.
-- **Tradeoffs/Risks:** Slightly more state to track (a dirty flag or version number); must remember to bump it on every inventory mutation path (`addItem`, `removeItem`, `processQueue`, quick-sell, crafting consumption). Missing one path means stale UI — needs a grep-for-all-callers pass.
-- **Expected impact estimate:** Removes ~95% of inventory-tab DOM churn in the common case (nothing changed that second); noticeable smoothness improvement once players have 15–25 filled slots.
-- **Removal Safety:** Needs Verification (must audit all inventory mutation call sites before adding a dirty-flag gate)
-- **Reuse Scope:** module (`js/ui/inventory.js`, `js/ui/index.js`)
-
-### Finding 2 — Building panel rebuilt every tick regardless of visibility or change
-
-- **Category:** Frontend / DOM
-- **Severity:** High
-- **Impact:** CPU per tick, wasted work when the buildings section is hidden
-- **Evidence:** `js/ui/index.js` `tickUpdate()` calls `renderBuildingTab()` unconditionally every second. `js/ui/buildings.js` `renderBuildingTab()` does `document.getElementById("building-content").innerHTML = ...` every time, iterating `Object.entries(building.stored)` and rebuilding all product cells — even when `features.hive/coop/barn` are all `false` and the whole section is `display:none` (per `syncFeatureTabs()`'s `buildingSection.style.display`).
-- **Why it's inefficient:** Rendering into a hidden (`display:none`) element every second is pure waste — no pixel ever changes on screen, but the browser still does string concat, innerHTML parsing, and DOM node churn. Even when visible, building `stored` quantities only change on a production tick (`tickBuildings`) or a manual sell/craft, not necessarily every second.
-- **Recommended fix:** Early-return from `renderBuildingTab()`/skip the call in `tickUpdate()` when `!anyBuilding` (no building purchased yet — the common early-game state) or when the buildings panel is hidden. When visible, patch only the `population`/`stored` text nodes instead of full `innerHTML`, same pattern as `updateSlotsTick`.
-- **Tradeoffs/Risks:** Need to keep the "visible" check in sync with `syncFeatureTabs()`'s own visibility logic to avoid drift between two places deciding visibility.
-- **Expected impact estimate:** Eliminates 100% of this cost pre-first-building-purchase (a meaningful chunk of early playtime); ~70-90% reduction once buildings exist but aren't actively producing that tick.
-- **Removal Safety:** Likely Safe
-- **Reuse Scope:** module (`js/ui/buildings.js`, `js/ui/index.js`)
-
-### Finding 3 — `syncFeatureTabs()` re-queries ~8 DOM elements every second for state that rarely changes
-
-- **Category:** Frontend / DOM
-- **Severity:** Medium
-- **Impact:** CPU per tick (small per-call cost, but runs 3600×/hour)
-- **Evidence:** `js/ui/index.js` `tickUpdate()` calls `syncFeatureTabs()` unconditionally every tick; the function does `document.querySelector`/`getElementById` for `orchardBtn`, `hiveBtn`, `coopBtn`, `barnBtn`, `buildingSection`, `quickSellZone`, `sellTabs`, `inventoryPanel`, `middlePanel` (9 DOM lookups) and writes `style.display`/`classList.toggle` on each, even though `state.features` only flips a handful of times in an entire playthrough (one-time feature purchases).
-- **Why it's inefficient:** `state.features` is boolean-flag data that changes on a single user action (buying a feature). Running the full sync pass every second is ~3600 unnecessary DOM query+write cycles per hour of idle play for data that's 99.97% of the time unchanged.
-- **Recommended fix:** Call `syncFeatureTabs()` only from `render()` (already happens) and from the specific action handler that flips a feature (`buyFeature` in `js/ui/events.js` already calls `_renderFn()` which triggers a full `render()`) — drop it from `tickUpdate()` entirely, since nothing in the tick loop mutates `state.features`.
-- **Tradeoffs/Risks:** None identified — no tick-loop code path (`tickFieldGrowth`, `tickOrchardGrowth`, `tickBuildings`, `tickMarket`, `processQueue`) writes to `state.features`.
-- **Expected impact estimate:** Removes ~9 DOM lookups + writes per second (~100% of this function's tick-loop cost); small in isolation but compounds with Findings 1-2 since they all run back-to-back in the same `tickUpdate()`.
-- **Removal Safety:** Safe
-- **Reuse Scope:** local file (`js/ui/index.js`)
-
-### Finding 4 — `checkLabelOverflow()` scans the entire visible DOM every tick even when nothing rendered
-
-- **Category:** Frontend / DOM
-- **Severity:** Medium
-- **Impact:** Layout/measurement cost per tick
-- **Evidence:** `js/ui/index.js` `tickUpdate()` calls `checkLabelOverflow()` unconditionally at the end of every tick. It does `document.querySelectorAll(".label, .slot-name")` across the whole document and reads `scrollWidth`/`clientWidth` on every match, every second.
-- **Why it's inefficient:** The read/write split inside the function is well done (good — avoids thrashing), but it still runs a full-document query + measurement pass every second regardless of whether any label text actually changed. Text/labels only change when items are added/removed/renamed in inventory, field, or building panels — not every tick.
-- **Recommended fix:** Only invoke `checkLabelOverflow()` after a render path that could plausibly change label text (full `render()`, inventory diff-update, market refresh) rather than on every `tickUpdate()`. If it must stay in the tick loop for progress-bar-driven layout shifts, throttle it (e.g. every 3–5 ticks) rather than every tick.
-- **Tradeoffs/Risks:** If some label text does depend on continuously-changing tick data (unlikely — it's currently just item/crop names), throttling could introduce a 1-4s lag before a scrolling-label animation kicks in. Low risk given current usage.
-- **Expected impact estimate:** ~70-100% reduction in overflow-check-related layout reads during ticks where nothing rendered.
-- **Removal Safety:** Likely Safe
-- **Reuse Scope:** local file (`js/ui/index.js`)
-
-### Finding 5 — Full `render()` triggered on every single user action, rebuilding all panels
-
-- **Category:** Frontend / DOM
-- **Severity:** Medium
-- **Impact:** CPU per user interaction (click/drop), not tick-driven so lower overall impact, but noticeable on rapid actions (e.g. spam-clicking buy-one, or drag-planting many slots quickly)
-- **Evidence:** `js/ui/events.js` — `handlePlotClick`, `handlePlotDrop`, `handleRightPanelAction`, and the quick-sell handler all end with `scheduleSave(); _renderFn();`, where `_renderFn` is `render()` from `js/ui/index.js`. `render()` unconditionally rebuilds header, inventory, the entire field/orchard grid (`fieldGridHTML()`/`orchardGridHTML()` via `innerHTML`), building tab, and the active right-panel tab (market/crafting/upgrades) — even though most single actions (e.g. buying one seed) only change one small piece of state.
-- **Why it's inefficient:** e.g. `buyOneSeed` only mutates one market listing's `remaining`/gold — yet triggers a full rebuild of the field grid (up to 25 slots) and inventory grid, none of which changed. This is the single most expensive path in the app per click, and idle-game players tend to click rapidly (bulk-buying, bulk-harvesting).
-- **Recommended fix:** Split `render()` into targeted updates per action type — action handlers already know which system they touched (market vs. field vs. crafting), so they can call just the relevant `renderX()` function instead of the omnibus `render()`. This is a larger refactor than Findings 1-4; treat as a "deeper optimization" (see §4).
-- **Tradeoffs/Risks:** Higher chance of stale-UI bugs if a per-action render omits a panel that was actually affected by a side effect (e.g. crafting can affect both inventory and unlocked recipe tiers, which affects the upgrades panel). Needs careful mapping of action → affected panels.
-- **Expected impact estimate:** Could cut per-click render cost by 60-80% for the common single-panel actions (market buy, harvest, upgrade).
-- **Removal Safety:** Needs Verification
-- **Reuse Scope:** service-wide (`js/ui/events.js`, `js/ui/index.js`)
-
-### Finding 6 — Market listing shuffle uses biased, and unnecessary, `sort(() => Math.random() - 0.5)`
-
-- **Category:** Algorithm
-- **Severity:** Low
-- **Impact:** Correctness/quality of randomness, not a performance bottleneck at this array size (≤ ~15 crops/trees)
-- **Evidence:** `js/systems/market.js` `generateMarketCycle()`: `const shuffledSeeds = [...seedPool].sort(() => Math.random() - 0.5).slice(0, seedSlots);` and the identical pattern for `shuffledSaplings`.
-- **Why it's inefficient:** This is the classic biased-shuffle anti-pattern — `Array.prototype.sort` with a random comparator does not produce a uniform permutation (comparator inconsistency also technically violates the sort contract, which some engines may warn about or optimize differently). At current array sizes (a few dozen crop/tree defs) this is not a perf issue, but it's worth fixing as a code-quality/algorithm-correctness item since it affects which items players actually see offered in the market (silently skews rarer positions).
-- **Recommended fix:** Replace with a proper partial Fisher-Yates shuffle (shuffle-and-slice, or reservoir sampling for `seedSlots` items) — O(n) and unbiased.
-- **Tradeoffs/Risks:** None — strictly an improvement, same output shape.
-- **Expected impact estimate:** Negligible perf change at current data sizes; fixes a subtle fairness/RNG-quality bug.
-- **Removal Safety:** Safe
-- **Reuse Scope:** local file (`js/systems/market.js`)
-
-### Finding 7 — `refreshOpenTooltip()` unconditionally rebuilds tooltip HTML + forces synchronous layout every tick while any tooltip is open
-
-- **Category:** Frontend / DOM
-- **Severity:** Low
-- **Impact:** Layout cost while hovering, once per second
-- **Evidence:** `js/ui/index.js` `tickUpdate()` calls `refreshOpenTooltip()` every tick; `js/ui/tooltip.js` `refreshOpenTooltip()` calls `resolveTooltipContent(...)`, sets `ttRoot.innerHTML = buildHTML(content)`, and immediately calls `positionTooltip()`, which reads `getBoundingClientRect()`/`offsetWidth`/`offsetHeight` synchronously right after the DOM write (a read-after-write layout-thrash pattern, unlike the batched read/write in `checkLabelOverflow`).
-- **Why it's inefficient:** Most tooltip content (item stats, costs) doesn't change second-to-second unless it's a "growing" slot tooltip showing live progress. Rebuilding+repositioning on every tick regardless is wasted work for the (common) case of a static tooltip (e.g. hovering a locked slot or a market listing).
-- **Recommended fix:** Only refresh tooltip content when `resolveTooltipContent` output would actually differ (e.g. compare a cheap signature, or only refresh for tooltip types known to show live-changing data like growth progress). For the unavoidable refresh case, defer `positionTooltip()`'s read to the next animation frame (`requestAnimationFrame`) to decouple the write from the read, matching the `checkLabelOverflow` pattern.
-- **Tradeoffs/Risks:** Minimal — one-frame lag on tooltip reposition is imperceptible.
-- **Expected impact estimate:** Removes a synchronous layout read on most ticks where a static tooltip is open.
-- **Removal Safety:** Likely Safe
-- **Reuse Scope:** local file (`js/ui/tooltip.js`)
+| # | Görev | Öncelik | Durum | Dosya |
+|---|---|---|---|---|
+| 1 | calendarTrade.js Math.round hatası | 🔴 KRİTİK | ✅ | `js/systems/calendarTrade.js` | Zaten düzeltilmiş |
+| 2 | header.js event listener birikimi | 🔴 KRİTİK | ✅ | `js/ui/header.js` | Event delegation ile düzeltildi |
+| 3 | main.js Date.now() dtSeconds | 🔴 KRİTİK | ✅ | `js/main.js` | Date.now() tabanlı dtSeconds eklendi |
+| 4 | save.js versiyon migrasyonu | 🔴 KRİTİK | ✅ | `js/systems/save.js` | SAVE_VERSION=2, migrateState(), corrupt data uyarısı |
+| 5 | upgrades.js data-tt attribute'ları | 🔴 KRİTİK | ✅ | `js/ui/upgrades.js` | renderNode ve renderFeatureNode'a eklendi |
+| 6 | field.js/orchard.js kod tekrarı | 🟡 YÜKSEK | ✅ | `js/systems/field.js`, `js/systems/orchard.js`, `js/systems/planting.js` | Ortak planting.js modülü oluşturuldu |
+| 7 | market.js satır HTML birleştirme | 🟡 YÜKSEK | ✅ | `js/ui/market.js` | Hayvan/tohum satır HTML'i tek şablona birleştirildi |
+| 8 | touch/pointer event desteği | 🟡 YÜKSEK | ✅ | `js/ui/events.js` | pointerdown/move/up ile touch drag desteği eklendi |
+| 9 | CSS hardcoded değerleri taşı | 🟡 YÜKSEK | ✅ | `css/base.css`, `css/*.css` | ~25 hardcoded renk CSS değişkenlerine taşındı |
+| 10 | render() fonksiyonu optimizasyonu | 🟡 YÜKSEK | ❌ GERİ ALINDI | `js/ui/index.js` | UX'e zarar verdi, her render her şeyi yeniden oluşturmalı |
+| 11 | events.js dead code temizliği | 🟠 ORTA | ✅ | `js/ui/events.js` | Kullanılmayan result değişkenleri kaldırıldı |
+| 12 | market.js bedava exploit düzelt | 🟠 ORTA | ✅ | `js/systems/market.js` | Math.max(1,...) ile minimum fiyat eklendi |
+| 13 | weather.js koruma ekle | 🟠 ORTA | ✅ | `js/systems/weather.js` | Fallback: WEATHER_TYPES.normal |
+| 14 | CSS erişilebilirlik (ARIA, contrast, tabindex) | 🟠 ORTA | ✅ | `index.html`, `js/ui/*.js` | ARIA rolleri, --text-muted açıldı, tabindex eklendi |
+| 15 | tooltip innerHTML diffing | 🟠 ORTA | ✅ | `js/ui/tooltip.js` | lastTooltipHTML ile content diffing |
+| 16 | main.js hardcoded değerleri sabitlere çek | 🟠 ORTA | ✅ | `js/main.js` | LOG_MAX_CHILDREN, HINT_INTERVAL, WEATHER_CHANGE_DAY_INTERVAL, vb. |
+| 17 | buildings.js while kontrolü | 🟠 ORTA | ✅ | `js/systems/buildings.js` | if → while döngüsü ile birden fazla production |
+| 18 | save.js corrupt data kullanıcı uyarısı | 🟠 ORTA | ✅ | `js/systems/save.js` | "Kayıt bozuk! Yeni oyun başlatılıyor." |
+| 19 | responsive.css large screen desteği | 🟠 ORTA | ✅ | `css/responsive.css` | @media (min-width: 1440px) eklendi |
+| 20 | README.md güncelleme | 🔵 DÜŞÜK | ✅ | `README.md` | Proje yapısı ve kalite iyileştirmeleri eklendi |
 
 ---
 
-## 3) Quick Wins (Do First)
+## KRİTİK DÜZELTMELERİN DETAYI
 
-- **Finding 3** — delete the `syncFeatureTabs()` call from `tickUpdate()` (one-line change, zero risk, removes 9 DOM lookups/sec).
-- **Finding 2 (partial)** — wrap the existing `renderBuildingTab()` call in `tickUpdate()` with an `if (anyBuilding)` check using the same `features.hive || features.coop || features.barn` condition already computed in `syncFeatureTabs()`. Cheap, immediately kills the pre-first-building-purchase cost.
-- **Finding 4** — throttle `checkLabelOverflow()` in `tickUpdate()` to run every 3rd tick instead of every tick (simple counter), as a stop-gap before the fuller "only after relevant renders" fix.
-- **Finding 6** — swap the biased sort-shuffle for a proper Fisher-Yates partial shuffle; small, isolated, no behavior risk beyond fixing the bias.
+### 1. calendarTrade.js Math.round Hatası
+**Sorun:** `getCalendarBuyMultiplier()` ve `getCalendarSellMultiplier()` çarpanları `Math.round()` ile yuvarlanıyor. 0.85, 1.05, 1.10 → hep 1.0. Takvim ticaret özelliği tamamen işlevsiz.
+**Çözüm:** `Math.round(multiplier)` satırlarını kaldır, çarpanı olduğu gibi döndür.
 
-## 4) Deeper Optimizations (Do Next)
+### 2. header.js Event Listener Birikimi
+**Sorun:** `renderHeader()` her çağrıldığında `settingsBtn`'e yeni click listener ekleniyor, eskisi kaldırılmıyor.
+**Çözüm:** Event delegation kullan veya listener'ı bir kez init'te bağla, render'da sadece DOM'u güncelle.
 
-- **Finding 1** — add a dirty/version-tracking mechanism for inventory state and convert `renderInventory()`'s tick path to a patch-based update (new quantities/newly-added or removed cells only), mirroring `updateSlotsTick`/`updateHeaderTick`.
-- **Finding 2 (full)** — convert `renderBuildingTab()`'s tick path to patch only `population`/`capacity`/`stored` quantities instead of full `innerHTML`, same pattern.
-- **Finding 5** — refactor `render()` into composable per-panel render calls, and have each action handler in `events.js` call only the panels its action actually affects. This is the largest-scope change here and should be done after Findings 1-2 land (so the "cheap path" for each panel already exists to call into).
-- **Finding 7** — decouple tooltip content-diffing from positioning; only reposition via `requestAnimationFrame`.
+### 3. main.js Date.now() dtSeconds
+**Sorun:** `tickTime(state.time, 1)` her zaman 1sn varsayıyor. setInterval tam garanti vermez.
+**Çözüm:** `Date.now()` farkı ile `dtSeconds` hesapla, max 10sn ile sınırla.
 
-## 5) Validation Plan
+### 4. save.js Versiyon Migrasyonu
+**Sorun:** State yapısı değiştiğinde eski kayıtlar uyumsuz olacak. Corrupt data'da sessiz kayıp.
+**Çözüm:** State'e `_version` ekle, load'da versiyon kontrolü yap, migrasyon fonksiyonları çalıştır. Corrupt data'da kullanıcıya uyarı göster.
 
-- **Benchmarks:** Use Chrome DevTools Performance tab, record 60s of idle play (no clicks) at three states: (a) fresh save, no buildings; (b) mid-game, 15+ inventory slots filled, 1 building active; (c) late-game, most slots filled, 3 buildings active. Compare "Scripting" + "Rendering" time per tick before/after.
-- **Profiling strategy:** Use `performance.mark`/`performance.measure` around `tickUpdate()` internals (`renderInventory`, `renderBuildingTab`, `syncFeatureTabs`, `checkLabelOverflow`) to get per-function timings pre/post change, logged to console during a dev build.
-- **Metrics to compare before/after:** Average `tickUpdate()` duration (ms), count of `innerHTML` writes per minute, count of DOM `querySelector`/`getElementById` calls per minute (instrument temporarily via a wrapper), CPU% in Chrome Task Manager over a 5-minute idle session.
-- **Test cases to ensure correctness is preserved:**
-  - Inventory: add item (new slot), stack existing item, item depletes to 0 and slot frees, queue drains into a freed slot — grid must reflect all four cases without a stale cell.
-  - Buildings: population changes (buy animal, tick-based production), stored product quantity increases (production tick) and decreases (drag-to-sell) — panel must reflect both without manual tab-switch.
-  - Feature purchase (`buyFeature`) — tab visibility (`orchardBtn`, `hiveBtn`, etc.) must update immediately, confirming the tick-loop removal in Finding 3 doesn't break the one legitimate trigger (full `render()` on the purchase action itself).
-  - Tooltip: hover a growing slot and confirm the progress % in the tooltip still updates each second if it's meant to; hover a static tooltip (locked slot) and confirm no unnecessary rebuild fires (instrument a counter).
+### 5. upgrades.js Data-tt Attribute'ları
+**Sorun:** `renderNode()` ve `renderFeatureNode()` data-tt eklemiyor. Build fonksiyonları hazır ama çalışmıyor.
+**Çözüm:** `data-tt="upgradeNode"` ve `data-tt="featureNode"` ile gerekli parametreleri ekle.
 
-## 6) Optimized Code / Patch
+---
 
-Per your instructions, no fixes have been applied — this file is audit-only. Say the word and I'll implement any of the above (quick wins first is the natural order).
+## YÜKSEK ÖNCELİK DÜZELTMELERİNİN DETAYI
+
+### 6. field.js/orchard.js Kod Tekrarı
+**Sorun:** 6 fonksiyon neredeyse birebir aynı.
+**Çözüm:** `computeGrowthMultiplier`, `canPlant`, `plantSeed`, `tickGrowth`, `harvestSlot`, `removePlant` fonksiyonlarını ortak bir modüle çek. field.js ve orchard.js sadece parametre farkıyla çağırsın.
+
+### 7. market.js Satır HTML Birleştirme
+**Sorun:** Hayvan ve tohum/fidan satırları %80 aynı HTML'i tekrarlıyor.
+**Çözüm:** Tek bir `renderListingRow(listing, index, ctx)` fonksiyonu yaz, her iki kategori de aynı fonksiyonu çağırsın.
+
+### 8. Touch/Pointer Event Desteği
+**Sorun:** Mobilde drag & drop çalışmıyor (özellikle iOS).
+**Çözüm:** `touchstart/touchmove/touchend` olaylarını ekle veya `pointer events` kullan.
+
+### 9. CSS Hardcoded Değerleri Taşı
+**Sorun:** ~30 yerde boşluk, ~25 yerde renk, ~10 yerde font boyutu hardcoded.
+**Çözüm:** Tüm hardcoded değerleri `--space-*`, `--font-*`, renk değişkenlerine taşı.
+
+### 10. render() Optimizasyonu
+**Sorun:** Her aksiyonda tüm paneller yeniden oluşturuluyor.
+**Çözüm:** `render()`'ı parçalara ayır, her aksiyon sadece etkilenen paneli render etsin.
+
+---
+
+## ORTA ÖNCELİK DÜZELTMELERİNİN DETAYI
+
+### 11. events.js Dead Code
+- `btnClass` fonksiyonu parametre kullanmıyor → temizle
+- Tanımsız `result` değişkenleri → kaldır
+- `unlockedCountFn` tekrarı → ortak fonksiyona çek
+
+### 12. market.js Bedava Exploit
+- `%2` sansla `pricePerUnit = 0` olabiliyor
+- Çözüm: Minimum fiyat eşiği ekle (`Math.max(pricePerUnit, 1)`)
+
+### 13. weather.js Koruma
+- `WEATHER_TYPES[weatherState.current]` bilinmeyen değerse `undefined` döner
+- Çözüm: Fallback olarak `WEATHER_TYPES.normal` kullan
+
+### 14. CSS Erişilebilirlik
+- Tab barlarına `role="tablist"`, `role="tab"`, `aria-selected` ekle
+- Skill tree düğümlerine `tabindex="0"` ve `role="button"` ekle
+- `--text-muted` rengini aç (contrast ratio 4.5:1'e çıkar)
+
+### 15. Tooltip innerHTML Diffing
+- `refreshOpenTooltip()`'te içeriği string'e hesapla, değişmemişse DOM'a dokunma
+- `positionTooltip()`'ı `requestAnimationFrame` ile sar
+
+### 16. main.js Hardcoded Sabitler
+- `50` (log limit), `300` (hint timer), `7` (weather cycle) → sabitlere çek
+
+### 17. buildings.js While Kontrolü
+- `sinceLastProduction` negatif olabilir → `while` döngüsü ile birden fazla production tetikle
+
+### 18. save.js Corrupt Data Uyarısı
+- Bozuk JSON'da kullanıcıya "Kayıt bozuk" uyarısı göster
+
+### 19. responsive.css Large Screen
+- `@media (min-width: 1440px)` ile max-width ekle
+
+---
+
+## ÖNCEKİ PERFORMANS AUDİT BULGULARI (Q.md v1)
+
+Aşağıdaki bulgalar önceki audit'ten gelmiştir ve bu planda da ele alınmıştır:
+
+### Finding 1: Inventory panel her tick'te tam rebuild → **Görev #10** kapsamnda
+### Finding 2: Building panel visibility kontrolü yok → **Görev #10** kapsamında
+### Finding 3: syncFeatureTabs() gereksiz DOM sorgusu → **Görev #10** kapsamında
+### Finding 4: checkLabelOverflow() her 3 tick → Zaten uygulanmış (counter var)
+### Finding 5: Full render() her aksiyonda → **Görev #10** kapsamında
+### Finding 6: Fisher-Yates shuffle → **DÜZELTİLMİŞ** (market.js'de doğru uygulanmış)
+### Finding 7: refreshOpenTooltip() innerHTML → **Görev #15** kapsamında
+
+---
+
+## UYGULAMA SIRASI
+
+1. **KRİTİK** düzeltmeler (1-5) → ilk olarak
+2. **YÜKSEK** düzeltmeler (6-10) → ardından
+3. **ORTA** düzeltmeler (11-19) → ensuite
+4. **DÜŞÜK** düzeltme (20) → en sonda
+
+Her düzeltme sonrası `node --check` ile syntax kontrolü yapılacak.
+
+---
+
+## NOTLAR
+
+- Bu dosya, sohbette edinilen tüm bilgiyi içerir
+- Başka bir agent bu dosyadan bağlamı okuyarak devam edebilir
+- Her düzeltme tamamlandığında ⏳ → ✅ olarak güncellenecek
+- Toplam 20 görev, 4 öncelik seviyesi

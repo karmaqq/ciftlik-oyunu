@@ -37,7 +37,7 @@ export function craftingHTML() {
 
       const tierClass = `recipe-tier-${r.tier}`;
 
-      html += `<div class="recipe-card ${craftable ? "" : "faded"} ${tierClass}" data-recipe-id="${r.id}" data-tt="craftRecipe" data-tt-recipe="${r.id}">
+      html += `<div class="recipe-card ${craftable ? "" : "faded"} ${tierClass}" data-recipe-id="${r.id}" data-tt="craftRecipe" data-tt-recipe="${r.id}" data-tt-icon="${itemEmoji(r.output.id)}">
         <div class="recipe-title">${itemEmoji(r.output.id)} ${r.name} ${learned ? "⭐" : ""}</div>
         <div class="recipe-actions">
           <button data-action="craft" data-recipe="${r.id}" data-times="1" ${craftable ? "" : "disabled"}>Üret</button>
