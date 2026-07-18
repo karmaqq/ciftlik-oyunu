@@ -41,6 +41,7 @@ export function initUI(state, log, newGameCallback) {
 
 /* ─────────────────── Tüm panelleri yeniden oluştur ─────────────────── */
 export function render() {
+  document.body.classList.remove("loading");
   renderHeader();
   renderInventory();
   syncFeatureTabs();
@@ -102,7 +103,7 @@ function syncFeatureTabs() {
 
   const orchardBtn = document.querySelector('#middle-tabs button[data-tab="orchard"]');
   if (orchardBtn) {
-    orchardBtn.style.display = features.orchard ? "" : "none";
+    orchardBtn.classList.toggle("feature-hidden", !features.orchard);
     if (!features.orchard && ctx.state.ui.activeMiddleTab === "orchard") {
       ctx.state.ui.activeMiddleTab = "field";
     }
@@ -111,9 +112,9 @@ function syncFeatureTabs() {
   const hiveBtn = document.querySelector('#building-tabs button[data-tab="hive"]');
   const coopBtn = document.querySelector('#building-tabs button[data-tab="coop"]');
   const barnBtn = document.querySelector('#building-tabs button[data-tab="barn"]');
-  if (hiveBtn) hiveBtn.style.display = features.hive ? "" : "none";
-  if (coopBtn) coopBtn.style.display = features.coop ? "" : "none";
-  if (barnBtn) barnBtn.style.display = features.barn ? "" : "none";
+  if (hiveBtn) hiveBtn.classList.toggle("feature-hidden", !features.hive);
+  if (coopBtn) coopBtn.classList.toggle("feature-hidden", !features.coop);
+  if (barnBtn) barnBtn.classList.toggle("feature-hidden", !features.barn);
 
   if (!features[ctx.state.ui.activeBuildingTab]) {
     if (features.hive) ctx.state.ui.activeBuildingTab = "hive";
@@ -121,16 +122,16 @@ function syncFeatureTabs() {
     else if (features.barn) ctx.state.ui.activeBuildingTab = "barn";
   }
 
-  const buildingSection = document.querySelector("#middle-panel .panel-bottom");
+  const buildingSection = document.getElementById("building-section");
   const anyBuilding = features.hive || features.coop || features.barn;
   if (buildingSection) {
-    buildingSection.style.display = anyBuilding ? "" : "none";
+    buildingSection.classList.toggle("feature-hidden", !anyBuilding);
   }
 
   const quickSellZone = document.getElementById("quick-sell-zone");
   const sellTabs = document.getElementById("sell-tabs");
-  if (quickSellZone) quickSellZone.style.display = features.quickSell ? "" : "none";
-  if (sellTabs) sellTabs.style.display = features.quickSell ? "" : "none";
+  if (quickSellZone) quickSellZone.classList.toggle("feature-hidden", !features.quickSell);
+  if (sellTabs) sellTabs.classList.toggle("feature-hidden", !features.quickSell);
 
   const inventoryPanel = document.getElementById("inventory-panel");
   if (inventoryPanel) {

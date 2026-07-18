@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="css/tooltip.css" />
 <link rel="stylesheet" href="css/settings.css" />
 </head>
-<body>
+<body class="loading">
   <div id="app">
     <header id="header"></header>
 
@@ -22,11 +22,11 @@
           <div id="inventory-grid" class="inventory-grid"></div>
         </div>
         <div class="panel-bottom">
-          <div id="sell-tabs" class="tab-bar" role="tablist" aria-label="Satış modu">
+          <div id="sell-tabs" class="tab-bar feature-hidden" role="tablist" aria-label="Satış modu">
             <button data-sell-mode="single" class="active">Tekli</button>
             <button data-sell-mode="bulk">Toplu</button>
           </div>
-          <div id="quick-sell-zone" class="quick-sell-zone"></div>
+          <div id="quick-sell-zone" class="quick-sell-zone feature-hidden"></div>
         </div>
       </aside>
 
@@ -34,15 +34,15 @@
         <div class="panel-top">
           <div id="middle-tabs" class="tab-bar" role="tablist" aria-label="Orta panel sekmeleri">
             <button data-tab="field" class="active">Tarla</button>
-            <button data-tab="orchard">Bahçe</button>
+            <button data-tab="orchard" class="feature-hidden">Bahçe</button>
           </div>
           <div id="middle-content"></div>
         </div>
-        <div class="panel-bottom">
+        <div class="panel-bottom feature-hidden" id="building-section">
           <div id="building-tabs" class="tab-bar" role="tablist" aria-label="Bina sekmeleri">
-            <button data-tab="hive" class="active">Kovan</button>
-            <button data-tab="coop">Kümes</button>
-            <button data-tab="barn">Ahır</button>
+            <button data-tab="hive" class="active feature-hidden">Kovan</button>
+            <button data-tab="coop" class="feature-hidden">Kümes</button>
+            <button data-tab="barn" class="feature-hidden">Ahır</button>
           </div>
           <div id="building-content"></div>
         </div>

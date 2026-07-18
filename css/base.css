@@ -169,3 +169,11 @@ small {
   min-height: 0;
   min-width: 0;
 }
+
+.feature-hidden {
+  display: none !important;
+}
+
+.loading .tab-bar button {
+  visibility: hidden;
+}
